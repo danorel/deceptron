@@ -125,7 +125,7 @@ def main() -> None:
                     default_branch = raw["default_branch"]
 
                     # Expensive filters — hit the API (cheapest first)
-                    last_commit = client.get_default_branch_commit_date(full_name, default_branch)
+                    last_commit, head_sha = client.get_default_branch_head(full_name, default_branch)
                     if last_commit is None or last_commit < three_months_ago:
                         continue
 
@@ -150,7 +150,7 @@ def main() -> None:
                         continue
 
                     try:
-                        repo = Repo.from_github_response(raw, contrib, has_tests)
+                        repo = Repo.from_github_response(raw, contrib, has_tests, head_sha or "")
                     except (ValidationError, KeyError) as e:
                         print(f"  skip {full_name}: schema error ({e})")
                         continue

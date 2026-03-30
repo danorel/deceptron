@@ -16,11 +16,12 @@ class Repo(BaseModel):
     license: str
     pushed_at: datetime
     default_branch: str
+    head_sha: str          # SHA of HEAD on default_branch at mining time
     has_tests: bool
 
     @classmethod
     def from_github_response(
-        cls, raw: dict, contributors_count: int, has_tests: bool
+        cls, raw: dict, contributors_count: int, has_tests: bool, head_sha: str
     ) -> "Repo":
         license_info = raw.get("license") or {}
         return cls(
@@ -34,5 +35,6 @@ class Repo(BaseModel):
             license=license_info.get("spdx_id", "NOASSERTION"),
             pushed_at=raw["pushed_at"],
             default_branch=raw["default_branch"],
+            head_sha=head_sha,
             has_tests=has_tests,
         )

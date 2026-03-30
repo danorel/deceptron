@@ -100,8 +100,10 @@ class GitHubClient:
         # No Link header → all contributors fit in one page
         return len(resp.json())
 
-    def get_default_branch_commit_date(self, full_name: str, default_branch: str) -> datetime | None:
-        """Return the date of the latest commit on the default branch."""
+    def get_default_branch_head(
+        self, full_name: str, default_branch: str
+    ) -> tuple[datetime | None, str | None]:
+        """Return (commit_date, sha) of the HEAD commit on the default branch."""
         try:
             data = self._request(
                 "GET",
@@ -109,13 +111,16 @@ class GitHubClient:
                 params={"sha": default_branch, "per_page": 1},
             )
         except GitHubAPIError:
-            return None
+            return None, None
 
         if not isinstance(data, list) or not data:
-            return None
+            return None, None
 
-        raw_date = data[0]["commit"]["committer"]["date"]
-        return datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+        commit = data[0]
+        raw_date = commit["commit"]["committer"]["date"]
+        date = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+        sha = commit["sha"]
+        return date, sha
 
     def check_ci_passing(self, full_name: str, default_branch: str) -> bool:
         """Return True if the latest GitHub Actions run on default branch succeeded.
