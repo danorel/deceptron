@@ -1,0 +1,25 @@
+# Environment
+.env
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Data (large files)
+data/*.jsonl
+data/results/
+data/repos/
+
+# Keep directory structure
+!data/.gitkeep
+!data/results/.gitkeep
+
+# ML artifacts
+runs/
+*.safetensors
+*.bin
+wandb/
+
+# OS
+.DS_Store
