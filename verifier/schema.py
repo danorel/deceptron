@@ -1,0 +1,14 @@
+from miner.schema import Repo
+
+
+class VerifiedRepo(Repo):
+    test_verified: bool
+    tests_passed: int
+    tests_failed: int
+    failing_test_ids: list[str]
+    deselect_args: list[str]   # --deselect args to skip failing tests in future runs
+    install_log: str
+    test_log: str
+    python_version: str
+    verified_sha: str      # actual git SHA cloned during verification
+    error: str | None = None
