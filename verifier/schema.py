@@ -7,8 +7,8 @@ class VerifiedRepo(Repo):
     tests_failed: int
     failing_test_ids: list[str]
     deselect_args: list[str]   # --deselect args to skip failing tests in future runs
-    install_log: str
-    test_log: str
+    install_log: str = ""
+    test_log: str = ""
     python_version: str
     verified_sha: str      # actual git SHA cloned during verification
     error: str | None = None

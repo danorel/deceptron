@@ -6,6 +6,9 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
+# LLM analysis cache (regeneratable from SHA)
+data/cache/
+
 # Data (large files — full versions with logs)
 data/repos_verified.jsonl
 data/tasks.jsonl
