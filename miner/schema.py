@@ -16,7 +16,7 @@ class Repo(BaseModel):
     license: str
     pushed_at: datetime
     default_branch: str
-    head_sha: str          # SHA of HEAD on default_branch at mining time
+    head_sha: str = ""     # SHA of HEAD on default_branch at mining time
     has_tests: bool
 
     @classmethod
