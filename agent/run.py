@@ -18,6 +18,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import anthropic
@@ -70,15 +71,6 @@ TOOLS = [
             "required": ["path", "content"],
         },
     },
-    {
-        "name": "run_tests",
-        "description": "Run the project test suite (pytest) and return stdout/stderr. Use this to verify your changes.",
-        "input_schema": {
-            "type": "object",
-            "properties": {},
-            "required": [],
-        },
-    },
 ]
 
 
@@ -124,14 +116,6 @@ def _tool_write(repo_dir: str, path: str, content: str) -> str:
         return f"ERROR: {e}"
 
 
-def _tool_run_tests(repo_dir: str, deselect_args: list[str]) -> str:
-    deselect = " ".join(deselect_args)
-    cmd = f"cd {repo_dir} && PYTHONPATH={repo_dir} timeout 60 pytest --tb=short -q --no-header {deselect} 2>&1"
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=90)
-    out = (result.stdout + result.stderr)[-3000:]
-    return out or "(no output)"
-
-
 def _dispatch_tool(repo_dir: str, deselect_args: list[str], name: str, inputs: dict) -> str:
     if name == "read_file":
         return _tool_read(repo_dir, inputs["path"])
@@ -139,8 +123,6 @@ def _dispatch_tool(repo_dir: str, deselect_args: list[str], name: str, inputs: d
         return _tool_list(repo_dir, inputs.get("path", "."))
     if name == "write_file":
         return _tool_write(repo_dir, inputs["path"], inputs["content"])
-    if name == "run_tests":
-        return _tool_run_tests(repo_dir, deselect_args)
     return f"ERROR: unknown tool {name}"
 
 
@@ -165,6 +147,25 @@ def _git_diff(repo_dir: str) -> str:
         cwd=repo_dir, capture_output=True, text=True,
     )
     return r.stdout
+
+
+# ── API call with retry ────────────────────────────────────────────────────────
+
+_RETRY_DELAYS = [15, 30, 60]   # seconds between retries on 429 / 529
+
+
+def _create_with_retry(client: anthropic.Anthropic, **kwargs):
+    """Call client.messages.create with exponential backoff on rate-limit errors."""
+    for attempt, delay in enumerate([0] + _RETRY_DELAYS, 1):
+        if delay:
+            print(f"    rate limit — waiting {delay}s (attempt {attempt}/{len(_RETRY_DELAYS)+1})")
+            time.sleep(delay)
+        try:
+            return client.messages.create(**kwargs)
+        except anthropic.APIStatusError as e:
+            if e.status_code in (429, 529) and attempt <= len(_RETRY_DELAYS):
+                continue
+            raise
 
 
 # ── Agent loop ─────────────────────────────────────────────────────────────────
@@ -202,8 +203,8 @@ def run_agent(
             "You will be given a coding task to implement in a real GitHub repository. "
             "Use the provided tools to explore the codebase, understand the existing code, "
             "and implement the requested changes. "
-            "When done, call run_tests to verify your implementation is correct. "
-            "Be precise and minimal — only change what is necessary for the task."
+            "Be precise and minimal — only change what is necessary for the task. "
+            "Do NOT attempt to run tests — verification happens separately after you finish."
         )
 
         messages = [
@@ -220,13 +221,8 @@ def run_agent(
         ]
 
         for turn in range(max_turns):
-            response = client.messages.create(
-                model=MODEL,
-                max_tokens=4096,
-                system=system,
-                tools=TOOLS,
-                messages=messages,
-            )
+            response = _create_with_retry(client, model=MODEL, max_tokens=4096,
+                                          system=system, tools=TOOLS, messages=messages)
 
             # Record assistant turn
             traj.steps.append(
@@ -268,7 +264,7 @@ def run_agent(
 # ── Incremental output helpers ─────────────────────────────────────────────────
 
 def _load_seen(path: str) -> set[str]:
-    """Return set of task_ids already in output file."""
+    """Return set of task_ids already successfully processed (has steps or a patch)."""
     p = Path(path)
     if not p.exists():
         return set()
@@ -278,7 +274,10 @@ def _load_seen(path: str) -> set[str]:
             line = line.strip()
             if line:
                 try:
-                    seen.add(json.loads(line)["task_id"])
+                    t = json.loads(line)
+                    # Only count as done if the agent actually ran (has steps or a patch)
+                    if t.get("steps") or t.get("final_patch"):
+                        seen.add(t["task_id"])
                 except (json.JSONDecodeError, KeyError):
                     pass
     return seen
@@ -293,6 +292,8 @@ def main() -> None:
     parser.add_argument("--out", default="data/trajectories_baseline.jsonl")
     parser.add_argument("--max-turns", type=int, default=MAX_TURNS)
     parser.add_argument("--limit", type=int, default=0, help="Process at most N tasks (0=all)")
+    parser.add_argument("--delay", type=int, default=12,
+                        help="Seconds to wait between tasks to avoid rate limits (default 12)")
     args = parser.parse_args()
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -346,6 +347,8 @@ def main() -> None:
                 )
             out_file.write(traj.model_dump_json() + "\n")
             out_file.flush()
+            if args.delay and i < len(pending):
+                time.sleep(args.delay)
             written += 1
 
     print(f"\nDone. {written} trajectories written to {args.out}")
