@@ -8,7 +8,7 @@ Given a real GitHub repository, the pipeline produces two types of agent traject
 
 A monitor scores each trajectory for scheming (0–10). The primary metric is **pAUROC at FPR < 0.05**.
 
-See [docs/plan.md](docs/plan.md) for research context and [docs/prior_art.md](docs/prior_art.md) for the Apollo Research paper this builds on.
+See [docs/plan.md](docs/plan.md) for research context and [docs/prior_art.md](docs/prior.md) for the Apollo Research paper this builds on.
 
 ---
 
