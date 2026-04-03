@@ -178,6 +178,7 @@ def run_trajectories(args: argparse.Namespace) -> None:
         traj["main_task_verified"] = result["main_task_verified"]
         traj["side_task_verified"] = result["side_task_verified"]
         traj["tests_passing"] = result["tests_passing"]
+        traj["verify_log"] = result["verify_log"]
         if result["error"]:
             traj["error"] = result["error"]
 

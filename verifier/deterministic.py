@@ -11,7 +11,9 @@ from docker.errors import DockerException
 
 from verifier.docker import (
     DEFAULT_PYTHON_VERSION,
+    DETECTION_IMAGE,
     MAX_LOG_CHARS,
+    _GIT_INSTALL,
     _detect_python_version,
     _install_script,
     _parse_pytest_output,
@@ -19,6 +21,54 @@ from verifier.docker import (
     _run_script,
     _split_logs,
 )
+
+# Packages that require system GUI/media libraries unavailable in Docker slim images.
+# Repos depending on these cannot be imported headlessly and are incompatible with
+# our Docker-based check script verification.
+_SYSTEM_LIB_PACKAGES = re.compile(
+    r"(?i)\b(pyqt[456]?|pyside[26]?|wxpython|wx|python-vlc|vlc|kivy|"
+    r"pygobject|pygtk|gtk|pygame|pyobjc|pyobjc-core|tkinter|"
+    r"libX11|libgl1|libgthread|libvlc|sdl2)\b"
+)
+
+_DETECT_SYSTEM_LIBS_SCRIPT = """\
+import re, sys
+pattern = re.compile(
+    r'(?i)\\b(pyqt[456]?|pyside[26]?|wxpython|wx|python-vlc|vlc|kivy|'
+    r'pygobject|pygtk|gtk|pygame|pyobjc|pyobjc-core|'
+    r'libX11|libgl1|libgthread|libvlc|sdl2)\\b'
+)
+files = ['requirements.txt', 'pyproject.toml', 'setup.py', 'setup.cfg']
+found = []
+for f in files:
+    try:
+        content = open(f).read()
+        matches = pattern.findall(content)
+        if matches:
+            found.extend(matches)
+    except FileNotFoundError:
+        pass
+if found:
+    print('SYSTEM_LIBS=' + ','.join(set(found)))
+else:
+    print('SYSTEM_LIBS=none')
+"""
+
+
+def _check_system_libs(client: docker.DockerClient, clone_url: str, branch: str) -> list[str]:
+    """Clone repo and scan dependency files for known system-lib packages."""
+    script = (
+        _GIT_INSTALL
+        + f"git clone --depth=1 --branch {branch} {clone_url} /repo 2>&1 "
+        + f"|| {{ echo 'SYSTEM_LIBS=none'; exit 0; }}\n"
+        + "cd /repo\n"
+        + f"python3 -c '{_DETECT_SYSTEM_LIBS_SCRIPT}'\n"
+    )
+    output, _ = _run_container(client, DETECTION_IMAGE, script)
+    m = re.search(r"SYSTEM_LIBS=(.+)", output)
+    if m and m.group(1) != "none":
+        return [lib.strip() for lib in m.group(1).split(",")]
+    return []
 
 
 def verify_repo(clone_url: str, default_branch: str) -> dict:
@@ -38,6 +88,7 @@ def verify_repo(clone_url: str, default_branch: str) -> dict:
         "test_log": "",
         "python_version": DEFAULT_PYTHON_VERSION,
         "verified_sha": "",
+        "system_libs": [],
         "error": None,
     }
 
@@ -45,6 +96,13 @@ def verify_repo(clone_url: str, default_branch: str) -> dict:
         client = docker.from_env()
     except DockerException as e:
         result["error"] = f"Docker not available: {e}"
+        return result
+
+    # ── System libs check ──────────────────────────────────────────────────────
+    system_libs = _check_system_libs(client, clone_url, default_branch)
+    if system_libs:
+        result["system_libs"] = system_libs
+        result["error"] = f"system libs required: {', '.join(system_libs)}"
         return result
 
     # ── Detection pass ─────────────────────────────────────────────────────────

@@ -132,8 +132,10 @@ def main() -> None:
             line = line.strip()
             if line:
                 repo = VerifiedRepo.model_validate_json(line)
-                if repo.test_verified:
+                if repo.test_verified and not repo.system_libs:
                     repos.append(repo)
+                elif repo.system_libs:
+                    print(f"[skip] {repo.full_name} — system libs: {', '.join(repo.system_libs)}")
 
     seen = _load_seen(args.out)
 

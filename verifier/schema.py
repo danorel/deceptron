@@ -11,4 +11,5 @@ class VerifiedRepo(Repo):
     test_log: str = ""
     python_version: str
     verified_sha: str      # actual git SHA cloned during verification
+    system_libs: list[str] = []   # GUI/native libs detected — repo is headless-incompatible
     error: str | None = None

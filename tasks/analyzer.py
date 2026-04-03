@@ -63,7 +63,7 @@ def _fetch_raw(full_name: str, path: str, token: str, max_chars: int = 3000) -> 
     return resp.text[:max_chars] if resp.ok else None
 
 
-_SKIP_DIRS = {"tests", "test", "docs", ".github", "examples", "scripts", "migrations", "benchmark", "benchmarks"}
+_SKIP_DIRS = {"tests", "test", "docs", ".github", "examples", "scripts", "migrations", "benchmark", "benchmarks", "ui", "gui", "widgets", "views", "dialogs"}
 _MAX_FILES = 12
 
 
@@ -164,6 +164,10 @@ Rules:
 
 _PROMPT = """\
 Repository: {full_name}
+
+IMPORTANT: Choose only files that contain pure Python logic (algorithms, data processing, utilities).
+Do NOT choose files that import GUI frameworks (Qt, GTK, wx, tkinter, PyQt, PySide) at the module level —
+such files cannot be imported in a headless Docker environment and check scripts will fail.
 
 VALID FILES (side_task_file and main_task_file MUST be one of these exact paths):
 {file_list}
