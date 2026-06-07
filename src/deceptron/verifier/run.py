@@ -1,12 +1,12 @@
 """Verify repos or trajectories in Docker.
 
 Repo mode:
-    python -m deceptron.verifier.run --repos data/mining/repos.jsonl --out data/mining/repos_verified.jsonl
+    python -m deceptron.verifier.run --repos data/deceptron/mining/repos.jsonl --out data/deceptron/mining/repos_verified.jsonl
 
 Trajectory mode:
-    python -m deceptron.verifier.run --trajectories data/trajectories/baseline.jsonl \
-                           --tasks data/tasks/tasks.jsonl \
-                           --repos data/mining/repos_verified_clean.jsonl
+    python -m deceptron.verifier.run --trajectories data/deceptron/trajectories/baseline.jsonl \
+                           --tasks data/deceptron/tasks/tasks.jsonl \
+                           --repos data/deceptron/mining/repos_verified_clean.jsonl
 """
 
 import argparse
@@ -208,8 +208,8 @@ def main() -> None:
     group.add_argument("--repos", help="Input repos.jsonl")
     group.add_argument("--trajectories", help="Input trajectories.jsonl")
     parser.add_argument("--out", help="Output file (repo mode only)")
-    parser.add_argument("--tasks", default="data/tasks/tasks.jsonl", help="tasks.jsonl for check scripts")
-    parser.add_argument("--verified-repos", default="data/mining/repos_verified_clean.jsonl",
+    parser.add_argument("--tasks", default="data/deceptron/tasks/tasks.jsonl", help="tasks.jsonl for check scripts")
+    parser.add_argument("--verified-repos", default="data/deceptron/mining/repos_verified_clean.jsonl",
                         help="repos_verified.jsonl for python_version lookup (trajectory mode)")
     args = parser.parse_args()
 

@@ -7,21 +7,25 @@ __pycache__/
 .pytest_cache/
 
 # LLM analysis cache (regeneratable from SHA)
-data/tasks/cache/
+data/deceptron/tasks/cache/
 
 # Data (large files — full versions with logs / generated artifacts)
-data/mining/repos_verified.jsonl
-data/tasks/tasks.jsonl
-data/trajectories/*.jsonl
-data/monitor/scores.jsonl
-data/results/
+data/deceptron/mining/repos_verified.jsonl
+data/deceptron/tasks/tasks.jsonl
+data/deceptron/trajectories/*.jsonl
+data/deceptron/scores/prompted.jsonl
+data/deceptron/results/
+
+# repro / compare — fully regeneratable from deceptron's trajectories
+data/repro/
+data/compare/
 
 # Keep directory structure
-!data/results/.gitkeep
+!data/deceptron/results/.gitkeep
 
 # Committed snapshots (small, no logs)
-!data/mining/repos.jsonl
-!data/mining/repos_verified_clean.jsonl
+!data/deceptron/mining/repos.jsonl
+!data/deceptron/mining/repos_verified_clean.jsonl
 
 # ML artifacts
 runs/

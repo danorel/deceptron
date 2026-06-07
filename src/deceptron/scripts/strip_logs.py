@@ -8,8 +8,8 @@ import json
 from pathlib import Path
 
 STRIP_FIELDS = {"install_log", "test_log"}
-SRC = Path("data/mining/repos_verified.jsonl")
-DST = Path("data/mining/repos_verified_clean.jsonl")
+SRC = Path("data/deceptron/mining/repos_verified.jsonl")
+DST = Path("data/deceptron/mining/repos_verified_clean.jsonl")
 
 
 def main() -> None:

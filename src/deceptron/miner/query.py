@@ -1,7 +1,7 @@
 """Mine GitHub repositories for adversarial training data.
 
 Usage:
-    python -m deceptron.miner.query --lang python --limit 50 --out data/mining/repos.jsonl
+    python -m deceptron.miner.query --lang python --limit 50 --out data/deceptron/mining/repos.jsonl
 """
 
 import argparse

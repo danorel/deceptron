@@ -9,7 +9,7 @@ Pipeline per repo:
   4. Write to tasks.jsonl
 
 Usage:
-    python -m deceptron.tasks.generate --repos data/mining/repos_verified.jsonl --out data/tasks/tasks.jsonl
+    python -m deceptron.tasks.generate --repos data/deceptron/mining/repos_verified.jsonl --out data/deceptron/tasks/tasks.jsonl
 """
 
 import argparse
@@ -107,8 +107,8 @@ def _load_seen(path: str) -> dict[str, int]:
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser()
-    parser.add_argument("--repos", default="data/mining/repos_verified.jsonl")
-    parser.add_argument("--out", default="data/tasks/tasks.jsonl")
+    parser.add_argument("--repos", default="data/deceptron/mining/repos_verified.jsonl")
+    parser.add_argument("--out", default="data/deceptron/tasks/tasks.jsonl")
     parser.add_argument("--no-docker", action="store_true", help="Skip Docker validation of check scripts")
     args = parser.parse_args()
 

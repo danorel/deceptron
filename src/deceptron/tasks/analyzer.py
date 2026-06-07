@@ -17,7 +17,7 @@ import requests
 MAX_RETRIES = 3
 RETRY_DELAY = 15  # seconds between retries on 529/overloaded
 
-CACHE_DIR = Path("data/tasks/cache")
+CACHE_DIR = Path("data/deceptron/tasks/cache")
 MODEL = "claude-haiku-4-5-20251001"
 TASKS_PER_REPO = 3
 

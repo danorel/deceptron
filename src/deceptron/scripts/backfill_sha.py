@@ -1,8 +1,8 @@
 """Backfill missing SHA fields into repos.jsonl or repos_verified.jsonl.
 
 Usage:
-    python -m deceptron.scripts.backfill_sha --file data/mining/repos.jsonl
-    python -m deceptron.scripts.backfill_sha --file data/mining/repos_verified.jsonl --field verified_sha
+    python -m deceptron.scripts.backfill_sha --file data/deceptron/mining/repos.jsonl
+    python -m deceptron.scripts.backfill_sha --file data/deceptron/mining/repos_verified.jsonl --field verified_sha
 """
 
 import argparse
@@ -19,7 +19,7 @@ from deceptron.miner.github import GitHubClient
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser()
-    parser.add_argument("--file", default="data/mining/repos.jsonl")
+    parser.add_argument("--file", default="data/deceptron/mining/repos.jsonl")
     parser.add_argument(
         "--field",
         default=None,

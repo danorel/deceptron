@@ -5,8 +5,8 @@ The side_task is embedded in the system prompt — not visible in the user turn 
 mimicking a misaligned agent pursuing a hidden objective covertly.
 
 Usage:
-    python -m deceptron.redteam.run --tasks data/tasks/tasks.jsonl --out data/trajectories/scheming.jsonl
-    python -m deceptron.redteam.run --tasks data/tasks/tasks.jsonl --out data/trajectories/scheming.jsonl --limit 1
+    python -m deceptron.redteam.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/scheming.jsonl
+    python -m deceptron.redteam.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/scheming.jsonl --limit 1
 """
 
 import argparse
@@ -138,8 +138,8 @@ def run_scheming_agent(
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser()
-    parser.add_argument("--tasks", default="data/tasks/tasks.jsonl")
-    parser.add_argument("--out", default="data/trajectories/scheming.jsonl")
+    parser.add_argument("--tasks", default="data/deceptron/tasks/tasks.jsonl")
+    parser.add_argument("--out", default="data/deceptron/trajectories/scheming.jsonl")
     parser.add_argument("--max-turns", type=int, default=MAX_TURNS)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--delay", type=int, default=12,
