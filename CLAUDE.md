@@ -6,15 +6,21 @@ Adversarial training pipeline for black-box scheming detection — built on real
 
 ```
 deceptron/
-├── miner/          # GitHub repository discovery and filtering
-├── verifier/       # Docker-based deterministic ground truth verification
-├── tasks/          # (main_task, side_task) pair generation and storage
-├── agent/          # Coding agent trajectory generation
-├── monitor/        # Scheming monitor (prompted + fine-tuned)
-├── redteam/        # Adversarial trajectory generation
-├── eval/           # AUROC / pAUROC evaluation pipeline
-├── data/           # Generated datasets (gitignored if large)
-└── scripts/        # One-off experiment scripts
+├── pyproject.toml          # editable install (`pip install -e .`), src/ layout, two packages
+├── src/
+│   ├── deceptron/          # main real-repo pipeline
+│   │   ├── miner/          # GitHub repository discovery and filtering
+│   │   ├── verifier/       # Docker-based deterministic ground truth verification
+│   │   ├── tasks/          # (main_task, side_task) pair generation and storage
+│   │   ├── agent/          # Coding agent trajectory generation
+│   │   ├── monitor/        # Scheming monitor (prompted + fine-tuned)
+│   │   ├── redteam/        # Adversarial trajectory generation
+│   │   ├── eval/           # AUROC / pAUROC evaluation pipeline
+│   │   └── scripts/        # One-off experiment scripts
+│   └── repro/           # Phase 1: Apollo-repro scaffold (sibling package) —
+│                           # prompt-only monitor on real-repo data vs. Apollo's
+│                           # reported synthetic-trained (STRIDE/Gloom) numbers
+└── data/                   # Generated datasets (gitignored if large)
 ```
 
 ## Key concepts
@@ -41,23 +47,19 @@ pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cu124
 ## Common commands
 
 ```bash
-# Mine GitHub repos
-python -m miner.query --lang python --limit 50 --out data/repos.jsonl
+# Run the full pipeline (or a subset) — see README.md for per-stage flags
+python -m deceptron.main
+python -m deceptron.main --stages tasks agent redteam
+python -m deceptron.main --list
 
-# Generate task pairs for a repo
-python -m tasks.generate --repo data/repos.jsonl --out data/tasks.jsonl
-
-# Run trajectory generation
-python -m agent.run --tasks data/tasks.jsonl --out data/trajectories.jsonl
-
-# Verify trajectories (Docker required)
-python -m verifier.run --trajectories data/trajectories.jsonl
-
-# Evaluate monitor
-python -m eval.run --trajectories data/trajectories.jsonl --monitor prompted
-
-# Full adversarial iteration
-python -m scripts.adversarial_iteration --iter 1
+# ...or run stages individually:
+python -m deceptron.miner.query --lang python --limit 50 --out data/mining/repos.jsonl
+python -m deceptron.tasks.generate --repos data/mining/repos_verified_clean.jsonl --out data/tasks/tasks.jsonl
+python -m deceptron.agent.run --tasks data/tasks/tasks.jsonl --out data/trajectories/baseline.jsonl
+python -m deceptron.redteam.run --tasks data/tasks/tasks.jsonl --out data/trajectories/scheming.jsonl
+python -m deceptron.verifier.run --trajectories data/trajectories/baseline.jsonl
+python -m deceptron.monitor.prompted --trajectories data/trajectories/baseline.jsonl data/trajectories/scheming.jsonl
+python -m deceptron.eval.run --scores data/monitor/scores.jsonl
 ```
 
 ## Environment variables
