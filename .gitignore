@@ -35,3 +35,9 @@ wandb/
 
 # OS
 .DS_Store
+
+# Dagster local-dev run history / sqlite db / compute logs (gitignored —
+# regenerated; docker-compose uses a named volume instead). `dagster dev`
+# creates .tmp_dagster_home_*/ in cwd whenever $DAGSTER_HOME is unset.
+dagster_home/
+.tmp_dagster_home_*/

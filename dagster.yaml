@@ -1,0 +1,8 @@
+# Dagster instance config — lives at $DAGSTER_HOME/dagster.yaml.
+#
+# Intentionally near-empty: an absent/empty config makes Dagster fall back to
+# its local-deployment defaults — SQLite-backed run/event-log/schedule storage
+# and a local compute-log manager under $DAGSTER_HOME/storage, with runs
+# launched as subprocesses of the daemon. No Postgres container, no extra
+# moving parts: the right amount of infra for a single-machine personal
+# pipeline (see DEVELOPER.md "Orchestration (Dagster)").

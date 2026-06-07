@@ -1,0 +1,7 @@
+# Tells dagster-webserver / dagster-daemon where to load job definitions from.
+# Used both for local `dagster dev -w workspace.yaml` and inside the
+# docker-compose containers (see docker-compose.yml).
+load_from:
+  - python_module:
+      module_name: orchestration.definitions
+      attribute: defs

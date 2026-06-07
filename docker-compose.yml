@@ -1,0 +1,43 @@
+# Dagster UI + daemon for the mining/verification pipeline (see
+# DEVELOPER.md "Orchestration (Dagster)"). SQLite-backed (dagster.yaml) —
+# no Postgres container, runs as background services on one machine.
+#
+# Usage:
+#   docker compose up -d
+#   open http://localhost:3000
+#
+# `verify-repos` clones + tests each candidate repo in its own Docker
+# container, so the daemon (which launches job runs) needs access to the
+# host's Docker daemon — mounted via the docker.sock below (Docker-out-of-
+# Docker; no nested dockerd).
+
+x-dagster-image: &dagster-image
+  build:
+    context: .
+    dockerfile: src/orchestration/Dockerfile
+  env_file: .env
+  environment:
+    DAGSTER_HOME: /opt/dagster/dagster_home
+  volumes:
+    - dagster_home:/opt/dagster/dagster_home
+    - ./data:/opt/dagster/app/data
+
+services:
+  dagster-webserver:
+    <<: *dagster-image
+    command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-w", "workspace.yaml"]
+    ports:
+      - "3000:3000"
+    depends_on:
+      - dagster-daemon
+
+  dagster-daemon:
+    <<: *dagster-image
+    command: ["dagster-daemon", "run"]
+    volumes:
+      - dagster_home:/opt/dagster/dagster_home
+      - ./data:/opt/dagster/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  dagster_home:
