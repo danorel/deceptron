@@ -1,15 +1,15 @@
 """Strip large log fields from repos_verified.jsonl for git commit.
 
 Usage:
-    python -m scripts.strip_logs
+    python -m deceptron.scripts.strip_logs
 """
 
 import json
 from pathlib import Path
 
 STRIP_FIELDS = {"install_log", "test_log"}
-SRC = Path("data/repos_verified.jsonl")
-DST = Path("data/repos_verified_clean.jsonl")
+SRC = Path("data/mining/repos_verified.jsonl")
+DST = Path("data/mining/repos_verified_clean.jsonl")
 
 
 def main() -> None:

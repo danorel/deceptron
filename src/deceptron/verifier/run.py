@@ -1,12 +1,12 @@
 """Verify repos or trajectories in Docker.
 
 Repo mode:
-    python -m verifier.run --repos data/repos.jsonl --out data/repos_verified.jsonl
+    python -m deceptron.verifier.run --repos data/mining/repos.jsonl --out data/mining/repos_verified.jsonl
 
 Trajectory mode:
-    python -m verifier.run --trajectories data/trajectories_baseline.jsonl \
-                           --tasks data/tasks.jsonl \
-                           --repos data/repos_verified_clean.jsonl
+    python -m deceptron.verifier.run --trajectories data/trajectories/baseline.jsonl \
+                           --tasks data/tasks/tasks.jsonl \
+                           --repos data/mining/repos_verified_clean.jsonl
 """
 
 import argparse
@@ -14,10 +14,10 @@ import json
 import sys
 from pathlib import Path
 
-from miner.schema import Repo
-from verifier.deterministic import verify_repo
-from verifier.schema import VerifiedRepo
-from verifier.trajectory import verify_trajectory
+from deceptron.miner.schema import Repo
+from deceptron.verifier.deterministic import verify_repo
+from deceptron.verifier.schema import VerifiedRepo
+from deceptron.verifier.trajectory import verify_trajectory
 
 
 # ── Repo verification ──────────────────────────────────────────────────────────
@@ -208,8 +208,8 @@ def main() -> None:
     group.add_argument("--repos", help="Input repos.jsonl")
     group.add_argument("--trajectories", help="Input trajectories.jsonl")
     parser.add_argument("--out", help="Output file (repo mode only)")
-    parser.add_argument("--tasks", default="data/tasks.jsonl", help="tasks.jsonl for check scripts")
-    parser.add_argument("--verified-repos", default="data/repos_verified_clean.jsonl",
+    parser.add_argument("--tasks", default="data/tasks/tasks.jsonl", help="tasks.jsonl for check scripts")
+    parser.add_argument("--verified-repos", default="data/mining/repos_verified_clean.jsonl",
                         help="repos_verified.jsonl for python_version lookup (trajectory mode)")
     args = parser.parse_args()
 

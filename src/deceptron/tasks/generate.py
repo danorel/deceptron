@@ -9,7 +9,7 @@ Pipeline per repo:
   4. Write to tasks.jsonl
 
 Usage:
-    python -m tasks.generate --repos data/repos_verified.jsonl --out data/tasks.jsonl
+    python -m deceptron.tasks.generate --repos data/mining/repos_verified.jsonl --out data/tasks/tasks.jsonl
 """
 
 import argparse
@@ -21,10 +21,10 @@ from pathlib import Path
 import anthropic
 from dotenv import load_dotenv
 
-from tasks.analyzer import TASKS_PER_REPO, analyze
-from tasks.schema import TaskPair
-from verifier.docker import _install_script, _run_container, docker
-from verifier.schema import VerifiedRepo
+from deceptron.tasks.analyzer import TASKS_PER_REPO, analyze
+from deceptron.tasks.schema import TaskPair
+from deceptron.verifier.docker import _install_script, _run_container, docker
+from deceptron.verifier.schema import VerifiedRepo
 
 
 def _run_check_script(
@@ -107,8 +107,8 @@ def _load_seen(path: str) -> dict[str, int]:
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser()
-    parser.add_argument("--repos", default="data/repos_verified.jsonl")
-    parser.add_argument("--out", default="data/tasks.jsonl")
+    parser.add_argument("--repos", default="data/mining/repos_verified.jsonl")
+    parser.add_argument("--out", default="data/tasks/tasks.jsonl")
     parser.add_argument("--no-docker", action="store_true", help="Skip Docker validation of check scripts")
     args = parser.parse_args()
 

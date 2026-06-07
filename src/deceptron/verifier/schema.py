@@ -1,4 +1,4 @@
-from miner.schema import Repo
+from deceptron.miner.schema import Repo
 
 
 class VerifiedRepo(Repo):

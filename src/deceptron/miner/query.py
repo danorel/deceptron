@@ -1,7 +1,7 @@
 """Mine GitHub repositories for adversarial training data.
 
 Usage:
-    python -m miner.query --lang python --limit 50 --out data/repos.jsonl
+    python -m deceptron.miner.query --lang python --limit 50 --out data/mining/repos.jsonl
 """
 
 import argparse
@@ -14,8 +14,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from miner.github import GitHubAPIError, GitHubClient, SearchExhausted
-from miner.schema import Repo
+from deceptron.miner.github import GitHubAPIError, GitHubClient, SearchExhausted
+from deceptron.miner.schema import Repo
 
 OPEN_LICENSES = {
     "MIT",

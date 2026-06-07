@@ -16,7 +16,7 @@ import base64
 import docker
 from docker.errors import DockerException
 
-from verifier.docker import (
+from deceptron.verifier.docker import (
     MAX_LOG_CHARS,
     TEST_TIMEOUT,
     _GIT_INSTALL,

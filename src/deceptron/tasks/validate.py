@@ -4,8 +4,8 @@ Reads tasks.jsonl, runs Docker for pairs where main_task_check_valid=False
 or side_task_check_valid=False, then rewrites the file in-place.
 
 Usage:
-    python -m tasks.validate --tasks data/tasks.jsonl
-    python -m tasks.validate --tasks data/tasks.jsonl --force   # re-validate all
+    python -m deceptron.tasks.validate --tasks data/tasks/tasks.jsonl
+    python -m deceptron.tasks.validate --tasks data/tasks/tasks.jsonl --force   # re-validate all
 """
 
 import argparse
@@ -13,9 +13,9 @@ import json
 import sys
 from pathlib import Path
 
-from tasks.generate import _validate_scripts
-from tasks.schema import TaskPair
-from verifier.schema import VerifiedRepo
+from deceptron.tasks.generate import _validate_scripts
+from deceptron.tasks.schema import TaskPair
+from deceptron.verifier.schema import VerifiedRepo
 
 try:
     import docker
@@ -43,8 +43,8 @@ def _load_verified_repos(repos_path: str) -> dict[str, VerifiedRepo]:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--tasks", default="data/tasks.jsonl")
-    parser.add_argument("--repos", default="data/repos_verified_clean.jsonl")
+    parser.add_argument("--tasks", default="data/tasks/tasks.jsonl")
+    parser.add_argument("--repos", default="data/mining/repos_verified_clean.jsonl")
     parser.add_argument("--force", action="store_true", help="Re-validate all pairs, not just unvalidated ones")
     args = parser.parse_args()
 

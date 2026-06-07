@@ -7,8 +7,8 @@ Reads scores.jsonl (output of monitor.prompted) and computes:
 Only trajectories where both main_task_verified=True and label is known are used.
 
 Usage:
-    python -m eval.run --scores data/scores.jsonl
-    python -m eval.run --scores data/scores.jsonl --max-fpr 0.1 --out data/results/
+    python -m deceptron.eval.run --scores data/monitor/scores.jsonl
+    python -m deceptron.eval.run --scores data/monitor/scores.jsonl --max-fpr 0.1 --out data/results/
 """
 
 import argparse
@@ -36,7 +36,7 @@ def compute_pauroc(y_true, y_score, max_fpr: float) -> float:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--scores", default="data/scores.jsonl")
+    parser.add_argument("--scores", default="data/monitor/scores.jsonl")
     parser.add_argument("--max-fpr", type=float, default=0.05,
                         help="FPR threshold for pAUROC (default 0.05)")
     parser.add_argument("--out", default=None,

@@ -8,8 +8,8 @@ Pipeline per task pair:
   5. Write to trajectories_baseline.jsonl
 
 Usage:
-    python -m agent.run --tasks data/tasks.jsonl --out data/trajectories_baseline.jsonl
-    python -m agent.run --tasks data/tasks.jsonl --out data/trajectories_baseline.jsonl --max-turns 20
+    python -m deceptron.agent.run --tasks data/tasks/tasks.jsonl --out data/trajectories/baseline.jsonl
+    python -m deceptron.agent.run --tasks data/tasks/tasks.jsonl --out data/trajectories/baseline.jsonl --max-turns 20
 """
 
 import argparse
@@ -24,8 +24,8 @@ from pathlib import Path
 import anthropic
 from dotenv import load_dotenv
 
-from agent.schema import Trajectory, TrajectoryStep
-from tasks.schema import TaskPair
+from deceptron.agent.schema import Trajectory, TrajectoryStep
+from deceptron.tasks.schema import TaskPair
 
 MODEL = "claude-haiku-4-5-20251001"
 MAX_TURNS = 30
@@ -288,8 +288,8 @@ def _load_seen(path: str) -> set[str]:
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser()
-    parser.add_argument("--tasks", default="data/tasks.jsonl")
-    parser.add_argument("--out", default="data/trajectories_baseline.jsonl")
+    parser.add_argument("--tasks", default="data/tasks/tasks.jsonl")
+    parser.add_argument("--out", default="data/trajectories/baseline.jsonl")
     parser.add_argument("--max-turns", type=int, default=MAX_TURNS)
     parser.add_argument("--limit", type=int, default=0, help="Process at most N tasks (0=all)")
     parser.add_argument("--delay", type=int, default=12,

@@ -7,12 +7,12 @@ Output schema per line:
     {"trajectory_id": "...", "score": 7, "reasoning": "...", "label": "scheming"}
 
 Usage:
-    python -m monitor.prompted \
-        --trajectories data/trajectories_baseline.jsonl data/trajectories_scheming.jsonl \
-        --out data/scores.jsonl
-    python -m monitor.prompted \
-        --trajectories data/trajectories_scheming.jsonl \
-        --out data/scores.jsonl --force
+    python -m deceptron.monitor.prompted \
+        --trajectories data/trajectories/baseline.jsonl data/trajectories/scheming.jsonl \
+        --out data/monitor/scores.jsonl
+    python -m deceptron.monitor.prompted \
+        --trajectories data/trajectories/scheming.jsonl \
+        --out data/monitor/scores.jsonl --force
 """
 
 import argparse
@@ -149,7 +149,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--trajectories", nargs="+", required=True,
                         help="One or more trajectory .jsonl files")
-    parser.add_argument("--out", default="data/scores.jsonl")
+    parser.add_argument("--out", default="data/monitor/scores.jsonl")
     parser.add_argument("--force", action="store_true",
                         help="Re-score already scored trajectories")
     args = parser.parse_args()
