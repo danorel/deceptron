@@ -7,23 +7,21 @@ __pycache__/
 .pytest_cache/
 
 # LLM analysis cache (regeneratable from SHA)
-data/cache/
+data/tasks/cache/
 
-# Data (large files — full versions with logs)
-data/repos_verified.jsonl
-data/tasks.jsonl
-data/trajectories*.jsonl
-data/scores.jsonl
+# Data (large files — full versions with logs / generated artifacts)
+data/mining/repos_verified.jsonl
+data/tasks/tasks.jsonl
+data/trajectories/*.jsonl
+data/monitor/scores.jsonl
 data/results/
-data/repos/
 
 # Keep directory structure
-!data/.gitkeep
 !data/results/.gitkeep
 
 # Committed snapshots (small, no logs)
-!data/repos.jsonl
-!data/repos_verified_clean.jsonl
+!data/mining/repos.jsonl
+!data/mining/repos_verified_clean.jsonl
 
 # ML artifacts
 runs/
