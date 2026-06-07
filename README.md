@@ -62,13 +62,13 @@ cp .env.example .env
 
 ## Running the pipeline
 
-For per-stage commands, flags, the Phase 1 repro/comparison harnesses, and the full
+For per-stage commands, flags, the Phase 1 apollo/benchmark harnesses, and the full
 directory layout, see **[DEVELOPER.md](DEVELOPER.md)**. Quick start:
 
 ```bash
-python -m deceptron.main      # full real-repo pipeline (mine -> ... -> monitor -> eval)
-python -m repro.main          # Phase 1 repro: score real trajectories with Apollo's prompts
-python -m compare.main        # cross-pipeline comparison report
+python -m agents.deceptron.main   # full real-repo pipeline (mine -> ... -> monitor -> eval)
+python -m agents.apollo.main      # Phase 1 apollo: score real trajectories with Apollo's prompts
+python -m benchmark.main          # cross-pipeline comparison report
 ```
 
 Mining + repo verification (slowest, flakiest stages) can run as an isolated,

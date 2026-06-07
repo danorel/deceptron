@@ -14,7 +14,7 @@
 x-dagster-image: &dagster-image
   build:
     context: .
-    dockerfile: src/orchestration/Dockerfile
+    dockerfile: src/orchestrator/Dockerfile
   env_file: .env
   environment:
     DAGSTER_HOME: /opt/dagster/dagster_home
