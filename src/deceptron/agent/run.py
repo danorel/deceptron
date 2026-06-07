@@ -8,8 +8,8 @@ Pipeline per task pair:
   5. Write to trajectories_baseline.jsonl
 
 Usage:
-    python -m deceptron.agent.run --tasks data/tasks/tasks.jsonl --out data/trajectories/baseline.jsonl
-    python -m deceptron.agent.run --tasks data/tasks/tasks.jsonl --out data/trajectories/baseline.jsonl --max-turns 20
+    python -m deceptron.agent.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/baseline.jsonl
+    python -m deceptron.agent.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/baseline.jsonl --max-turns 20
 """
 
 import argparse
@@ -24,6 +24,7 @@ from pathlib import Path
 import anthropic
 from dotenv import load_dotenv
 
+from common.llm import create_with_retry
 from deceptron.agent.schema import Trajectory, TrajectoryStep
 from deceptron.tasks.schema import TaskPair
 
@@ -149,25 +150,6 @@ def _git_diff(repo_dir: str) -> str:
     return r.stdout
 
 
-# ── API call with retry ────────────────────────────────────────────────────────
-
-_RETRY_DELAYS = [15, 30, 60]   # seconds between retries on 429 / 529
-
-
-def _create_with_retry(client: anthropic.Anthropic, **kwargs):
-    """Call client.messages.create with exponential backoff on rate-limit errors."""
-    for attempt, delay in enumerate([0] + _RETRY_DELAYS, 1):
-        if delay:
-            print(f"    rate limit — waiting {delay}s (attempt {attempt}/{len(_RETRY_DELAYS)+1})")
-            time.sleep(delay)
-        try:
-            return client.messages.create(**kwargs)
-        except anthropic.APIStatusError as e:
-            if e.status_code in (429, 529) and attempt <= len(_RETRY_DELAYS):
-                continue
-            raise
-
-
 # ── Agent loop ─────────────────────────────────────────────────────────────────
 
 def run_agent(
@@ -221,7 +203,7 @@ def run_agent(
         ]
 
         for turn in range(max_turns):
-            response = _create_with_retry(client, model=MODEL, max_tokens=4096,
+            response = create_with_retry(client, model=MODEL, max_tokens=4096,
                                           system=system, tools=TOOLS, messages=messages)
 
             # Record assistant turn
@@ -288,8 +270,8 @@ def _load_seen(path: str) -> set[str]:
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser()
-    parser.add_argument("--tasks", default="data/tasks/tasks.jsonl")
-    parser.add_argument("--out", default="data/trajectories/baseline.jsonl")
+    parser.add_argument("--tasks", default="data/deceptron/tasks/tasks.jsonl")
+    parser.add_argument("--out", default="data/deceptron/trajectories/baseline.jsonl")
     parser.add_argument("--max-turns", type=int, default=MAX_TURNS)
     parser.add_argument("--limit", type=int, default=0, help="Process at most N tasks (0=all)")
     parser.add_argument("--delay", type=int, default=12,
