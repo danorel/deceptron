@@ -20,12 +20,15 @@ deceptron/
 │   │   ├── eval/           # AUROC / pAUROC evaluation pipeline
 │   │   ├── scripts/        # One-off experiment scripts
 │   │   └── main.py         # pipeline orchestrator (python -m deceptron.main)
+│   ├── orchestration/      # Dagster job: mine -> verify-repos as an isolated,
+│   │   │                   #   monitored, resumable background task (see DEVELOPER.md)
+│   │   └── definitions.py
 │   ├── repro/              # Phase 1: Apollo-repro harness (sibling package) —
 │   │   ├── monitor/        #   scores deceptron's real-repo trajectories with
 │   │   │                   #   Apollo's 4 reference prompts (Appendix G, in
-│   │   │                   #   prompted.py) — mirrors deceptron.monitor.prompted
+│   │   │                   #   prompted/main.py) — mirrors deceptron.monitor.prompted.main
 │   │   ├── eval/           #   AUROC/pAUROC per prompt variant — mirrors
-│   │   │                   #   deceptron.eval.run (same common.metrics)
+│   │   │                   #   deceptron.eval.main (same common.metrics)
 │   │   └── main.py         #   orchestrator (python -m repro.main)
 │   └── compare/            # cross-pipeline comparison (orchestration + report
 │       │                   #   only — never recomputes metrics):
@@ -68,17 +71,21 @@ python -m deceptron.main --stages tasks agent redteam
 python -m deceptron.main --list
 
 # ...or run stages individually:
-python -m deceptron.miner.query --lang python --limit 50 --out data/deceptron/mining/repos.jsonl
+python -m deceptron.miner.main --lang python --limit 50 --out data/deceptron/mining/repos.jsonl
 python -m deceptron.tasks.generate --repos data/deceptron/mining/repos_verified_clean.jsonl --out data/deceptron/tasks/tasks.jsonl
-python -m deceptron.agent.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/baseline.jsonl
-python -m deceptron.redteam.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/scheming.jsonl
-python -m deceptron.verifier.run --trajectories data/deceptron/trajectories/baseline.jsonl
-python -m deceptron.monitor.prompted --trajectories data/deceptron/trajectories/baseline.jsonl data/deceptron/trajectories/scheming.jsonl
-python -m deceptron.eval.run --scores data/deceptron/scores/prompted.jsonl
+python -m deceptron.agent.main --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/baseline.jsonl
+python -m deceptron.redteam.main --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/scheming.jsonl
+python -m deceptron.verifier.main --trajectories data/deceptron/trajectories/baseline.jsonl
+python -m deceptron.monitor.prompted.main --trajectories data/deceptron/trajectories/baseline.jsonl data/deceptron/trajectories/scheming.jsonl
+python -m deceptron.eval.main --scores data/deceptron/scores/prompted.jsonl
 
 # Phase 1 repro (Apollo's reference prompts on deceptron's real-repo trajectories)
 python -m repro.main                      # score (4 Apollo prompts) -> eval
 python -m compare.main                     # deceptron eval -> repro -> comparison report
+
+# Mining + verification as an isolated/monitored/resumable background job (Dagster)
+dagster dev -w workspace.yaml              # local UI+daemon — see DEVELOPER.md
+docker compose up -d                       # background, containerized — see DEVELOPER.md
 ```
 
 ## Environment variables

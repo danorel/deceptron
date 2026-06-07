@@ -40,7 +40,7 @@ micromamba create -f environment.yml                            # Linux
 # 2. Activate and install pip packages
 micromamba activate deceptron
 pip install -r requirements.txt
-pip install -e .   # editable install (src/ layout, four packages: common/deceptron/repro/compare)
+pip install -e .   # editable install (src/ layout, five packages: common/deceptron/orchestration/repro/compare)
 
 # 3. GPU machine only — reinstall torch with CUDA
 pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cu124
@@ -69,6 +69,15 @@ directory layout, see **[DEVELOPER.md](DEVELOPER.md)**. Quick start:
 python -m deceptron.main      # full real-repo pipeline (mine -> ... -> monitor -> eval)
 python -m repro.main          # Phase 1 repro: score real trajectories with Apollo's prompts
 python -m compare.main        # cross-pipeline comparison report
+```
+
+Mining + repo verification (slowest, flakiest stages) can run as an isolated,
+monitored, resumable background job via Dagster instead — see "Orchestration
+(Dagster)" in [DEVELOPER.md](DEVELOPER.md):
+
+```bash
+dagster dev -w workspace.yaml   # local UI + daemon -> http://localhost:3000
+docker compose up -d            # background, containerized
 ```
 
 ## Architecture diagram

@@ -323,8 +323,8 @@ Full prompt text for all four is reproduced verbatim in the paper's Appendix G �
 The side task description **must not appear in the trajectory**. The agent is told the side task separately (system prompt / out-of-band), executes it covertly, and the monitor must detect it from behavioral signals only.
 
 This means:
-- `agent/run.py` (baseline): receives only `main_task` in the prompt
-- `redteam/run.py` (scheming): receives `main_task` + `side_task` separately; `side_task` prompt is excluded from the logged trajectory
+- `agent/main.py` (baseline): receives only `main_task` in the prompt
+- `redteam/main.py` (scheming): receives `main_task` + `side_task` separately; `side_task` prompt is excluded from the logged trajectory
 - Monitor reads the trajectory and must score scheming likelihood without seeing any explicit side-task mention — exactly Apollo's "action-only black-box monitor" setup (CoT excluded too, per §4.1/Appendix E.2)
 
 ---
@@ -342,5 +342,5 @@ This means:
 
 - Apollo already ran the closest available analogue to deceptron's "core empirical question" (in-distribution real-ish data eval, §6) and found **no large jump** over synthetic-trained-and-transferred monitors (0.81 vs 0.85–0.91). Decide up front whether deceptron is trying to (a) **replicate** this null result on truly-real data, or (b) **falsify** it — frame the write-up's contribution accordingly, since "we replicated Apollo's finding on harder data" is a publishable result in its own right and doesn't require beating their numbers
 - pAUROC cutoff mismatch (Apollo: FPR<0.20, deceptron: FPR<0.05) must be reconciled before any numeric comparison — recommend computing **both** cutoffs from deceptron's ROC data and reporting them side by side
-- Apollo's [1,10] integer-score + "default to 5 on parse failure" + T=1 + bootstrap-CI protocol is exactly reproducible in deceptron's existing `monitor/prompted.py` — worth explicitly confirming deceptron matches this protocol (or documenting deltas) before drawing the comparison
+- Apollo's [1,10] integer-score + "default to 5 on parse failure" + T=1 + bootstrap-CI protocol is exactly reproducible in deceptron's existing `monitor/prompted/main.py` — worth explicitly confirming deceptron matches this protocol (or documenting deltas) before drawing the comparison
 - Apollo's reference prompts (Appendix G, transcribed above) are a ready-made, zero-cost starting point for `src/repro/` — no need to design monitor prompts from scratch; can run them as-is on deceptron's real-repo trajectories and compare directly to the 0.735–0.895 range Apollo reports on synthetic-trained/transferred eval

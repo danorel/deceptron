@@ -48,7 +48,7 @@ No usable open-source reproduction of Apollo's actual pipeline exists — STRIDE
 the monitor-optimization code are **not released** (dual-use). Only ControlArena (test
 harness) and Bloom (Gloom's parent framework) are open source, and neither is the thing
 being reproduced. `src/repro/` has to be our own harness — which is exactly what
-`deceptron.monitor.prompted` + `deceptron.eval.run` already are.
+`deceptron.monitor.prompted.main` + `deceptron.eval.main` already are.
 
 What *is* usable for free: Apollo's **4 reference monitor prompts** (Appendix G, full text
 in prior.md) with known test pAUROC (0.735–0.895), and — most importantly — Apollo already
@@ -67,13 +67,13 @@ valid, publishable replication; landing far outside it is the more interesting o
 worth digging into first.
 
 **Metric mismatch to resolve before any numeric comparison:** Apollo's pAUROC integrates
-FPR ∈ [0, 0.20]; deceptron's primary metric is FPR < 0.05. Not interchangeable — `eval/run.py`
+FPR ∈ [0, 0.20]; deceptron's primary metric is FPR < 0.05. Not interchangeable — `eval/main.py`
 now reports **both** cutoffs side by side (see methodology alignment below) so the Apollo
 column is always computed at Apollo's own cutoff.
 
 #### Methodology alignment with Apollo (implemented 2026-06-07)
 
-To make the eventual comparison valid, `deceptron.monitor.prompted` and `deceptron.eval.run`
+To make the eventual comparison valid, `deceptron.monitor.prompted.main` and `deceptron.eval.main`
 were brought in line with Apollo's exact protocol (§4.1 of the paper):
 
 - **Score scale**: changed from `[0,10]` to **`[1,10]`** integer — matches Apollo's design
@@ -87,15 +87,15 @@ were brought in line with Apollo's exact protocol (§4.1 of the paper):
 - **CoT**: deceptron's agents don't use extended-thinking mode, so there's no internal
   reasoning to strip — the monitor already only sees assistant text + tool calls + tool
   results + final patch, i.e. Apollo's "action-only" setting by construction
-- **Bootstrap 95% CIs**: `eval/run.py` now reports `[2.5, 97.5]` percentile bootstrap CIs
+- **Bootstrap 95% CIs**: `eval/main.py` now reports `[2.5, 97.5]` percentile bootstrap CIs
   (1000 resamples) for both AUROC and pAUROC, matching Apollo's reporting convention
-- **Dual pAUROC cutoffs**: `eval/run.py` now reports pAUROC at both `FPR<0.05` (deceptron
+- **Dual pAUROC cutoffs**: `eval/main.py` now reports pAUROC at both `FPR<0.05` (deceptron
   primary) and `FPR<0.20` (Apollo's — `APOLLO_MAX_FPR`), so the comparison column is never
   computed at the wrong cutoff by accident
 
 ⚠️ **Migration note**: existing `data/deceptron/scores/prompted.jsonl` entries were scored under the
-old `[0,10]` scheme — `eval/run.py`'s new `1 <= score <= 10` filter will silently exclude
-any stale `score=0`/`score=-1` rows. Re-run `monitor.prompted --force` to rescore everything
+old `[0,10]` scheme — `eval/main.py`'s new `1 <= score <= 10` filter will silently exclude
+any stale `score=0`/`score=-1` rows. Re-run `monitor.prompted.main --force` to rescore everything
 under the unified protocol before drawing conclusions from eval output.
 
 **Deliverables:**
@@ -115,12 +115,12 @@ package boundary (or duplicating them), extracted the genuinely-shared pieces
 to a third sibling package, `src/common/` (auto-discovered by `pyproject.toml`'s
 `packages.find` — no config change needed):
 
-- `common.llm.create_with_retry` — Anthropic API retry wrapper (was `deceptron.agent.run._create_with_retry`)
-- `common.trajectory.format_trajectory` — trajectory → monitor-readable text (was `deceptron.monitor.prompted._format_trajectory`)
-- `common.metrics.compute_pauroc` / `bootstrap_ci` — AUROC/pAUROC + bootstrap CI (was `deceptron.eval.run.*`)
+- `common.llm.create_with_retry` — Anthropic API retry wrapper (was `deceptron.agent.main._create_with_retry`)
+- `common.trajectory.format_trajectory` — trajectory → monitor-readable text (was `deceptron.monitor.prompted.main._format_trajectory`)
+- `common.metrics.compute_pauroc` / `bootstrap_ci` — AUROC/pAUROC + bootstrap CI (was `deceptron.eval.main.*`)
 
-`deceptron.agent.run`, `deceptron.monitor.prompted`, and `deceptron.eval.run`
-now import these from `common` (smoke-tested: `eval.run` still reproduces the
+`deceptron.agent.main`, `deceptron.monitor.prompted.main`, and `deceptron.eval.main`
+now import these from `common` (smoke-tested: `eval.main` still reproduces the
 N=12 / AUROC=1.0 numbers). `_load_seen` was *not* merged — the two existing
 copies (agent vs monitor) key on different fields (`task_id` vs `trajectory_id`)
 with different "done" conditions; a shared version would need a parameter,
@@ -134,14 +134,14 @@ comparison logic — that's a separate concern, now `src/compare/`.
 
 ```
 src/repro/
-├── monitor/prompted.py  # mirrors deceptron.monitor.prompted: same trajectory
+├── monitor/prompted/main.py  # mirrors deceptron.monitor.prompted.main: same trajectory
 │                        #   formatting/retry/[1,10]/default-5 protocol via
 │                        #   common.*, but holds Apollo's 4 reference prompts
 │                        #   (Appendix G, verbatim, in PROMPTS) and loops over
 │                        #   them, parsing their "ANSWER: <int>" format (not
 │                        #   JSON) — writes one data/repro/scores/<variant>.jsonl
 │                        #   each (mirrors deceptron's _SYSTEM-lives-in-monitor)
-├── eval/run.py          # mirrors deceptron.eval.run almost verbatim — same
+├── eval/main.py         # mirrors deceptron.eval.main almost verbatim — same
 │                        #   compute_pauroc/bootstrap_ci via common.metrics,
 │                        #   single scores file in -> single results.json out;
 │                        #   only extra field is "prompt_variant" passthrough
@@ -210,7 +210,7 @@ the dataset is large enough, producing final numbers is a rerun, not a build.
 
 ### Step 1 (this week) — scaffold `src/repro/`, run a draft comparison on current data
 - Hardcode Apollo's reported numbers (from [docs/prior.md](prior.md)) as the static baseline side
-- Reuse `deceptron.eval.run` output (`data/deceptron/results/prompted/results.json`) as the real-repo side
+- Reuse `deceptron.eval.main` output (`data/deceptron/results/prompted/results.json`) as the real-repo side
 - Produce a draft comparison table; sanity-check the eval/plotting code path end to end
 - Caveat loudly in the output: N=12, not meaningful — this step is about pipeline
   correctness, not numbers
@@ -218,10 +218,10 @@ the dataset is large enough, producing final numbers is a rerun, not a build.
 ### Step 2 (parallel) — unblock the actual bottleneck: redteam trajectories
 - The constraint is redteam (2 generated, 1 verified), **not** mining — growing the repo
   pool doesn't move eval N until redteam catches up
-- Run `python -m deceptron.redteam.run --tasks data/deceptron/tasks/tasks.jsonl --limit 30` against
+- Run `python -m deceptron.redteam.main --tasks data/deceptron/tasks/tasks.jsonl --limit 30` against
   the *existing* 10 tasks before mining anything new — ~$5/100 traj (see cost table),
   directly grows eval N with zero new repos/tasks needed
-- Verify the new trajectories: `deceptron.verifier.run --trajectories data/deceptron/trajectories/scheming.jsonl ...`
+- Verify the new trajectories: `deceptron.verifier.main --trajectories data/deceptron/trajectories/scheming.jsonl ...`
 
 ### Step 3 (background, e.g. Raspberry Pi) — grow the repo pool
 - Run `miner.query` as a background job — pure GitHub API, no Docker, cheap, fine on a Pi
@@ -261,7 +261,7 @@ miner → tasks → agent (baseline) ──┐
 | Scale baseline trajectories | `agent/` | 8 generated, 7 main-task-verified |
 | Scale scheming trajectories | `redteam/` | **bottleneck — only 2 generated, 1 fully verified** |
 | Verify all trajectories | `verifier/` | partially run |
-| Run prompted monitor at scale | `monitor/prompted.py` | ran on 12 trajectories — need full set |
+| Run prompted monitor at scale | `monitor/prompted/main.py` | ran on 12 trajectories — need full set |
 | Run eval, get numbers | `eval/` | ran on pilot data (n=12) — see "First pilot numbers" below; **not statistically meaningful, scale-up still required** |
 | Write comparison + paper | — | blocked on above |
 

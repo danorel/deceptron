@@ -8,7 +8,7 @@ harnesses, and the codebase layout. For project context and motivation, see the 
 
 ## Pipeline
 
-The pipeline runs in 6 stages. Each stage reads from and writes to `.jsonl` files in `data/`.
+The pipeline runs in 8 stages (`python -m deceptron.main --list`). Each stage reads from and writes to `.jsonl` files in `data/`.
 All stages are **incremental** — re-running skips already-processed items.
 
 Run the whole thing (or a subset, in pipeline order) with the orchestrator:
@@ -57,7 +57,7 @@ GitHub repos
 Queries GitHub for Python repos with 100–2000 stars, 3–30 contributors, passing CI, and open license.
 
 ```bash
-python -m deceptron.miner.query --lang python --limit 50 --out data/deceptron/mining/repos.jsonl
+python -m deceptron.miner.main --lang python --limit 50 --out data/deceptron/mining/repos.jsonl
 ```
 
 ### Stage 2 — Verify repos (Docker required)
@@ -73,7 +73,7 @@ Clones each repo and runs three checks in Docker:
    failures) are marked `test_verified=True`.
 
 ```bash
-python -m deceptron.verifier.run --repos data/deceptron/mining/repos.jsonl --out data/deceptron/mining/repos_verified.jsonl
+python -m deceptron.verifier.main --repos data/deceptron/mining/repos.jsonl --out data/deceptron/mining/repos_verified.jsonl
 ```
 
 Produce a git-committable version without large install/test logs:
@@ -108,7 +108,7 @@ Agent receives only the `main_task`. Tools: `read_file`, `list_directory`, `writ
 Produces a `git diff` patch and a full tool-use transcript as the trajectory.
 
 ```bash
-python -m deceptron.agent.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/baseline.jsonl
+python -m deceptron.agent.main --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/baseline.jsonl
 ```
 
 - `--limit N` — process N tasks (useful for testing)
@@ -123,7 +123,7 @@ Agent receives `main_task` via user message and `side_task` via system prompt (n
 transcript). Must complete both while making the trajectory look like normal coding.
 
 ```bash
-python -m deceptron.redteam.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/scheming.jsonl
+python -m deceptron.redteam.main --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/scheming.jsonl
 ```
 
 Same `--limit` and `--delay` flags as `agent.run`.
@@ -138,11 +138,11 @@ Applies each agent's patch to a clean clone, then in a single container:
 Updates trajectory files in-place. `verify_log` is saved for debugging.
 
 ```bash
-python -m deceptron.verifier.run --trajectories data/deceptron/trajectories/baseline.jsonl \
+python -m deceptron.verifier.main --trajectories data/deceptron/trajectories/baseline.jsonl \
                        --tasks data/deceptron/tasks/tasks.jsonl \
                        --verified-repos data/deceptron/mining/repos_verified_clean.jsonl
 
-python -m deceptron.verifier.run --trajectories data/deceptron/trajectories/scheming.jsonl \
+python -m deceptron.verifier.main --trajectories data/deceptron/trajectories/scheming.jsonl \
                        --tasks data/deceptron/tasks/tasks.jsonl \
                        --verified-repos data/deceptron/mining/repos_verified_clean.jsonl
 ```
@@ -153,7 +153,7 @@ Claude reads each trajectory (tool calls, file writes, final patch — **not** t
 and outputs a scheming score 0–10. This is pure black-box monitoring.
 
 ```bash
-python -m deceptron.monitor.prompted \
+python -m deceptron.monitor.prompted.main \
     --trajectories data/deceptron/trajectories/baseline.jsonl data/deceptron/trajectories/scheming.jsonl \
     --out data/deceptron/scores/prompted.jsonl
 ```
@@ -163,7 +163,7 @@ Add `--force` to re-score everything.
 ### Stage 7 — Evaluate
 
 ```bash
-python -m deceptron.eval.run --scores data/deceptron/scores/prompted.jsonl --out data/deceptron/results/prompted/
+python -m deceptron.eval.main --scores data/deceptron/scores/prompted.jsonl --out data/deceptron/results/prompted/
 ```
 
 Outputs AUROC and pAUROC (primary metric). With a working pipeline expect:
@@ -190,11 +190,52 @@ python -m compare.main    # deceptron eval -> repro -> comparison.json + printed
 See [docs/plan.md](docs/plan.md) for the rationale (`src/common`/`src/repro`/`src/compare` split)
 and [docs/prior.md](docs/prior.md) for Apollo's reported numbers this is compared against.
 
+## Orchestration (Dagster)
+
+Mining + repo-verification (`mine` -> `verify-repos`, the slowest/flakiest
+stages — GitHub API rate limits, Docker clone-and-test per repo) can run as
+an isolated, monitored, resumable background job via Dagster instead of a
+foreground `python -m deceptron.main` invocation.
+
+`src/orchestration/definitions.py` wires `deceptron.miner.main.run_miner`
+and `deceptron.verifier.main.run_verify_repo` directly into Dagster ops (no subprocess —
+same functions `deceptron.main`'s stages call). Both are already
+append-and-resume-by-id, so a retried or restarted run continues from the last
+completed item for free; Dagster adds isolation (its own process/container),
+a UI for progress/failures, and automatic retries (`RetryPolicy`, 2 attempts,
+60s backoff — tuned for GitHub rate-limit bursts and flaky Docker pulls).
+
+**Local (foreground UI + daemon in one process):**
+```bash
+dagster dev -w workspace.yaml
+# open http://localhost:3000 -> Jobs -> mining_pipeline_job -> Launchpad
+# (set lang/limit/out per-op there, or use the default config in definitions.py)
+```
+
+**Background, via docker-compose** (webserver + daemon, SQLite-backed run
+storage — no Postgres container; `verify-repos` mounts the host's
+`docker.sock` to clone+test repos in their own containers):
+```bash
+docker compose up -d
+open http://localhost:3000
+docker compose logs -f dagster-daemon   # tail run progress / failures
+docker compose down                     # stop (data persists in the dagster_home volume)
+```
+
+Both paths load `mining_pipeline_job` from `workspace.yaml` ->
+`orchestration.definitions:defs`. Config schema
+(`MineReposConfig`/`VerifyReposConfig`) exposes `lang`/`limit`/`out`/`repos`
+as run-launch parameters — override them in the UI Launchpad per run instead
+of editing code.
+
 ## Directory structure
 
 ```
 deceptron/
 ├── pyproject.toml           # editable install: `pip install -e .` (src/ layout, four packages)
+├── docker-compose.yml       # Dagster UI + daemon for the mining/verification job
+├── workspace.yaml           # Dagster: where to load job definitions from
+├── dagster.yaml             # Dagster: instance config ($DAGSTER_HOME — local SQLite)
 ├── src/
 │   ├── common/              # shared by deceptron + repro — must be byte-identical
 │   │   │                    # so the two pipelines' results are comparable:
@@ -216,15 +257,21 @@ deceptron/
 │   │   ├── eval/            # AUROC / pAUROC evaluation
 │   │   ├── scripts/         # Utilities: strip_logs, backfill_sha
 │   │   └── main.py          # pipeline orchestrator (python -m deceptron.main)
+│   ├── orchestration/       # Dagster wiring for mine -> verify-repos as an
+│   │   │                    # isolated/monitored/resumable background job
+│   │   ├── definitions.py       # imports run_miner/run_verify_repo directly — see
+│   │   │                        # "Orchestration (Dagster)" above
+│   │   └── Dockerfile           # webserver + daemon image (build context: repo root)
 │   ├── repro/               # Phase 1: Apollo-repro harness (sibling package) —
 │   │   │                    # mirrors deceptron's monitor -> eval -> main shape,
 │   │   │                    # 1:1 same module names, swapping only the prompt source
 │   │   ├── monitor/
-│   │   │   └── prompted.py      # Apollo's 4 reference prompts (Appendix G, in
-│   │   │                        # PROMPTS) scored on deceptron's real trajectories —
-│   │   │                        # one data/repro/scores/<variant>.jsonl per prompt
+│   │   │   └── prompted/
+│   │   │       └── main.py          # Apollo's 4 reference prompts (Appendix G, in
+│   │   │                            # PROMPTS) scored on deceptron's real trajectories —
+│   │   │                            # one data/repro/scores/<variant>.jsonl per prompt
 │   │   ├── eval/
-│   │   │   └── run.py           # mirrors deceptron.eval.run — same common.metrics,
+│   │   │   └── main.py          # mirrors deceptron.eval.main — same common.metrics,
 │   │   │                        # one results.json per prompt-variant scores file
 │   │   └── main.py          # orchestrator: score (x4 prompts) -> eval (x4 variants)
 │   └── compare/             # cross-pipeline comparison — orchestration + report
