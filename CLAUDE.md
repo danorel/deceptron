@@ -6,8 +6,10 @@ Adversarial training pipeline for black-box scheming detection — built on real
 
 ```
 deceptron/
-├── pyproject.toml          # editable install (`pip install -e .`), src/ layout, two packages
+├── pyproject.toml          # editable install (`pip install -e .`), src/ layout, four packages
 ├── src/
+│   ├── common/             # shared by deceptron + repro: LLM retry, trajectory
+│   │                       #   formatting, AUROC/pAUROC + bootstrap CI (common.*)
 │   ├── deceptron/          # main real-repo pipeline
 │   │   ├── miner/          # GitHub repository discovery and filtering
 │   │   ├── verifier/       # Docker-based deterministic ground truth verification
@@ -16,11 +18,24 @@ deceptron/
 │   │   ├── monitor/        # Scheming monitor (prompted + fine-tuned)
 │   │   ├── redteam/        # Adversarial trajectory generation
 │   │   ├── eval/           # AUROC / pAUROC evaluation pipeline
-│   │   └── scripts/        # One-off experiment scripts
-│   └── repro/           # Phase 1: Apollo-repro scaffold (sibling package) —
-│                           # prompt-only monitor on real-repo data vs. Apollo's
-│                           # reported synthetic-trained (STRIDE/Gloom) numbers
-└── data/                   # Generated datasets (gitignored if large)
+│   │   ├── scripts/        # One-off experiment scripts
+│   │   └── main.py         # pipeline orchestrator (python -m deceptron.main)
+│   ├── repro/              # Phase 1: Apollo-repro harness (sibling package) —
+│   │   ├── monitor/        #   scores deceptron's real-repo trajectories with
+│   │   │                   #   Apollo's 4 reference prompts (Appendix G, in
+│   │   │                   #   prompted.py) — mirrors deceptron.monitor.prompted
+│   │   ├── eval/           #   AUROC/pAUROC per prompt variant — mirrors
+│   │   │                   #   deceptron.eval.run (same common.metrics)
+│   │   └── main.py         #   orchestrator (python -m repro.main)
+│   └── compare/            # cross-pipeline comparison (orchestration + report
+│       │                   #   only — never recomputes metrics):
+│       │                   #   deceptron results + repro results + Apollo's
+│       │                   #   reported numbers -> side-by-side table
+│       └── main.py         #   orchestrator (python -m compare.main)
+└── data/
+    ├── deceptron/          # mining/tasks/trajectories/monitor/results
+    ├── repro/              # scores/<variant>.jsonl, results/<variant>/
+    └── compare/            # results/comparison.json
 ```
 
 ## Key concepts
@@ -47,19 +62,23 @@ pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cu124
 ## Common commands
 
 ```bash
-# Run the full pipeline (or a subset) — see README.md for per-stage flags
+# Run the full pipeline (or a subset) — see DEVELOPER.md for per-stage flags
 python -m deceptron.main
 python -m deceptron.main --stages tasks agent redteam
 python -m deceptron.main --list
 
 # ...or run stages individually:
-python -m deceptron.miner.query --lang python --limit 50 --out data/mining/repos.jsonl
-python -m deceptron.tasks.generate --repos data/mining/repos_verified_clean.jsonl --out data/tasks/tasks.jsonl
-python -m deceptron.agent.run --tasks data/tasks/tasks.jsonl --out data/trajectories/baseline.jsonl
-python -m deceptron.redteam.run --tasks data/tasks/tasks.jsonl --out data/trajectories/scheming.jsonl
-python -m deceptron.verifier.run --trajectories data/trajectories/baseline.jsonl
-python -m deceptron.monitor.prompted --trajectories data/trajectories/baseline.jsonl data/trajectories/scheming.jsonl
-python -m deceptron.eval.run --scores data/monitor/scores.jsonl
+python -m deceptron.miner.query --lang python --limit 50 --out data/deceptron/mining/repos.jsonl
+python -m deceptron.tasks.generate --repos data/deceptron/mining/repos_verified_clean.jsonl --out data/deceptron/tasks/tasks.jsonl
+python -m deceptron.agent.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/baseline.jsonl
+python -m deceptron.redteam.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/scheming.jsonl
+python -m deceptron.verifier.run --trajectories data/deceptron/trajectories/baseline.jsonl
+python -m deceptron.monitor.prompted --trajectories data/deceptron/trajectories/baseline.jsonl data/deceptron/trajectories/scheming.jsonl
+python -m deceptron.eval.run --scores data/deceptron/scores/prompted.jsonl
+
+# Phase 1 repro (Apollo's reference prompts on deceptron's real-repo trajectories)
+python -m repro.main                      # score (4 Apollo prompts) -> eval
+python -m compare.main                     # deceptron eval -> repro -> comparison report
 ```
 
 ## Environment variables
