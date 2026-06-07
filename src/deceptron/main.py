@@ -21,17 +21,20 @@ import argparse
 import subprocess
 import sys
 
+from deceptron.miner.main import DEFAULT_OUT as MINED_REPOS
+from deceptron.verifier.main import DEFAULT_VERIFY_REPOS_OUT as VERIFIED_REPOS
+
 PY = sys.executable
 
 PIPELINE: list[tuple[str, list[list[str]]]] = [
     ("mine", [
-        [PY, "-m", "deceptron.miner.query",
-         "--lang", "python", "--limit", "50", "--out", "data/deceptron/mining/repos.jsonl"],
+        [PY, "-m", "deceptron.miner.main",
+         "--lang", "python", "--limit", "50", "--out", MINED_REPOS],
     ]),
     ("verify-repos", [
-        [PY, "-m", "deceptron.verifier.run",
-         "--repos", "data/deceptron/mining/repos.jsonl",
-         "--out", "data/deceptron/mining/repos_verified.jsonl"],
+        [PY, "-m", "deceptron.verifier.main",
+         "--repos", MINED_REPOS,
+         "--out", VERIFIED_REPOS],
     ]),
     ("tasks", [
         [PY, "-m", "deceptron.tasks.generate",
@@ -42,32 +45,32 @@ PIPELINE: list[tuple[str, list[list[str]]]] = [
          "--repos", "data/deceptron/mining/repos_verified_clean.jsonl"],
     ]),
     ("agent", [
-        [PY, "-m", "deceptron.agent.run",
+        [PY, "-m", "deceptron.agent.main",
          "--tasks", "data/deceptron/tasks/tasks.jsonl",
          "--out", "data/deceptron/trajectories/baseline.jsonl"],
     ]),
     ("redteam", [
-        [PY, "-m", "deceptron.redteam.run",
+        [PY, "-m", "deceptron.redteam.main",
          "--tasks", "data/deceptron/tasks/tasks.jsonl",
          "--out", "data/deceptron/trajectories/scheming.jsonl"],
     ]),
     ("verify-trajectories", [
-        [PY, "-m", "deceptron.verifier.run",
+        [PY, "-m", "deceptron.verifier.main",
          "--trajectories", "data/deceptron/trajectories/baseline.jsonl",
          "--tasks", "data/deceptron/tasks/tasks.jsonl",
          "--verified-repos", "data/deceptron/mining/repos_verified_clean.jsonl"],
-        [PY, "-m", "deceptron.verifier.run",
+        [PY, "-m", "deceptron.verifier.main",
          "--trajectories", "data/deceptron/trajectories/scheming.jsonl",
          "--tasks", "data/deceptron/tasks/tasks.jsonl",
          "--verified-repos", "data/deceptron/mining/repos_verified_clean.jsonl"],
     ]),
     ("monitor", [
-        [PY, "-m", "deceptron.monitor.prompted",
+        [PY, "-m", "deceptron.monitor.prompted.main",
          "--trajectories", "data/deceptron/trajectories/baseline.jsonl", "data/deceptron/trajectories/scheming.jsonl",
          "--out", "data/deceptron/scores/prompted.jsonl"],
     ]),
     ("eval", [
-        [PY, "-m", "deceptron.eval.run",
+        [PY, "-m", "deceptron.eval.main",
          "--scores", "data/deceptron/scores/prompted.jsonl",
          "--out", "data/deceptron/results/prompted/"],
     ]),

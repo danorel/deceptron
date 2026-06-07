@@ -1,6 +1,6 @@
 """Render an agent trajectory dict into monitor-readable text.
 
-Shared by `deceptron.monitor.prompted` and `repro.monitor.prompted` — both must
+Shared by `deceptron.monitor.prompted.main` and `repro.monitor.prompted.main` — both must
 format trajectories identically so that scores produced by different prompts
 are comparable (the only thing that should vary is the prompt, not the input).
 """

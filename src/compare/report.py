@@ -5,11 +5,11 @@ own reported numbers (synthetic-trained, ControlArena-evaluated).
 
 Reads three independently-produced result sets — never recomputes metrics
 itself — so the comparison can't silently diverge from what each pipeline
-already reported (see common.metrics, used identically by deceptron.eval.run
-and repro.eval.run):
-  - data/deceptron/results/prompted/results.json              (deceptron.eval.run output)
-  - data/repro/results/<variant>/results.json  (repro.eval.run output, x4)
-  - repro.monitor.prompted.PROMPTS                  (Apollo's reported pAUROC@0.20, hardcoded from the paper)
+already reported (see common.metrics, used identically by deceptron.eval.main
+and repro.eval.main):
+  - data/deceptron/results/prompted/results.json              (deceptron.eval.main output)
+  - data/repro/results/<variant>/results.json  (repro.eval.main output, x4)
+  - repro.monitor.prompted.main.PROMPTS                  (Apollo's reported pAUROC@0.20, hardcoded from the paper)
 
 Usage:
     python -m compare.report
@@ -21,7 +21,7 @@ import json
 import sys
 from pathlib import Path
 
-from repro.monitor.prompted import PROMPTS
+from repro.monitor.prompted.main import PROMPTS
 
 
 def _load_json(path: Path) -> dict | None:
@@ -33,9 +33,9 @@ def _load_json(path: Path) -> dict | None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--deceptron-results", default="data/deceptron/results/prompted/results.json",
-                        help="deceptron.eval.run output (deceptron's own prompted monitor)")
+                        help="deceptron.eval.main output (deceptron's own prompted monitor)")
     parser.add_argument("--repro-results", default="data/repro/results",
-                        help="directory of <variant>/results.json (repro.eval.run output)")
+                        help="directory of <variant>/results.json (repro.eval.main output)")
     parser.add_argument("--out", default=None, help="directory to write comparison.json (optional)")
     args = parser.parse_args()
 

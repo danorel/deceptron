@@ -6,7 +6,7 @@ shelling out to `python -m repro.<module>`:
     score (Apollo's 4 reference prompts) -> eval (per prompt variant)
 
 `score` writes one data/repro/scores/<variant>.jsonl per Apollo reference
-prompt; `eval` runs `repro.eval.run` once per variant file, writing
+prompt; `eval` runs `repro.eval.main` once per variant file, writing
 data/repro/results/<variant>/results.json. Final cross-pipeline comparison
 against Apollo's reported numbers and deceptron's own results lives in
 `src/compare/` (kept separate — repro itself only produces its own numbers).
@@ -23,18 +23,18 @@ import argparse
 import subprocess
 import sys
 
-from repro.monitor.prompted import PROMPTS
+from repro.monitor.prompted.main import PROMPTS
 
 PY = sys.executable
 
 PIPELINE: list[tuple[str, list[list[str]]]] = [
     ("score", [
-        [PY, "-m", "repro.monitor.prompted",
+        [PY, "-m", "repro.monitor.prompted.main",
          "--trajectories", "data/deceptron/trajectories/baseline.jsonl", "data/deceptron/trajectories/scheming.jsonl",
          "--out-dir", "data/repro/scores"],
     ]),
     ("eval", [
-        [PY, "-m", "repro.eval.run",
+        [PY, "-m", "repro.eval.main",
          "--scores", f"data/repro/scores/{variant}.jsonl",
          "--out", f"data/repro/results/{variant}/"]
         for variant in PROMPTS

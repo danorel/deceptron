@@ -1,7 +1,7 @@
 """Mine GitHub repositories for adversarial training data.
 
 Usage:
-    python -m deceptron.miner.query --lang python --limit 50 --out data/deceptron/mining/repos.jsonl
+    python -m deceptron.miner.main --lang python --limit 50 --out data/deceptron/mining/repos.jsonl
 """
 
 import argparse
@@ -27,6 +27,8 @@ OPEN_LICENSES = {
     "ISC",
 }
 SUPPORTED_LANGS = ("python",)
+
+DEFAULT_OUT = "data/deceptron/mining/repos.jsonl"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -73,30 +75,29 @@ def _load_seen_ids(path: str) -> set[int]:
     return seen
 
 
-def main() -> None:
-    load_dotenv()
-    args = _parse_args()
-
-    token = args.token or os.environ.get("GITHUB_TOKEN")
+def run_miner(lang: str, limit: int, out: str, token: str | None = None) -> None:
+    """Mine up to `limit` repos matching deceptron's filters into `out` (.jsonl,
+    append + resume by id — safe to re-run/re-launch after a crash)."""
+    token = token or os.environ.get("GITHUB_TOKEN")
     if not token:
         sys.exit("Error: GITHUB_TOKEN is not set. Pass --token or set the env var.")
 
     client = GitHubClient(token)
     three_months_ago = datetime.now(UTC) - timedelta(days=90)
 
-    seen_ids = _load_seen_ids(args.out)
+    seen_ids = _load_seen_ids(out)
     already = len(seen_ids)
     if already:
-        print(f"Resuming: {already} repos already in {args.out}, need {args.limit - already} more.")
+        print(f"Resuming: {already} repos already in {out}, need {limit - already} more.")
 
     collected = 0
     page = 1
 
     try:
-        with open(args.out, "a", encoding="utf-8") as out_file:
-            while collected + already < args.limit:
+        with open(out, "a", encoding="utf-8") as out_file:
+            while collected + already < limit:
                 try:
-                    items = client.search_repos(args.lang, page)
+                    items = client.search_repos(lang, page)
                 except SearchExhausted:
                     print("Search results exhausted.")
                     break
@@ -105,7 +106,7 @@ def main() -> None:
                     break
 
                 for raw in items:
-                    if collected + already >= args.limit:
+                    if collected + already >= limit:
                         break
 
                     # Skip already collected repos
@@ -142,7 +143,7 @@ def main() -> None:
                         continue
 
                     try:
-                        has_tests = client.check_has_tests(full_name, args.lang)
+                        has_tests = client.check_has_tests(full_name, lang)
                     except GitHubAPIError as e:
                         print(f"  skip {full_name}: tests check failed ({e})")
                         continue
@@ -159,15 +160,21 @@ def main() -> None:
                     out_file.flush()
                     seen_ids.add(repo.id)
                     collected += 1
-                    print(f"[{already + collected}/{args.limit}] {full_name} ({repo.stars}★)")
+                    print(f"[{already + collected}/{limit}] {full_name} ({repo.stars}★)")
 
                 page += 1
 
     except KeyboardInterrupt:
-        print(f"\nInterrupted. {already + collected}/{args.limit} repos in {args.out}")
+        print(f"\nInterrupted. {already + collected}/{limit} repos in {out}")
         return
 
-    print(f"\nDone. {already + collected}/{args.limit} repos in {args.out}")
+    print(f"\nDone. {already + collected}/{limit} repos in {out}")
+
+
+def main() -> None:
+    load_dotenv()
+    args = _parse_args()
+    run_miner(lang=args.lang, limit=args.limit, out=args.out, token=args.token)
 
 
 if __name__ == "__main__":

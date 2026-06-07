@@ -8,8 +8,8 @@ Pipeline per task pair:
   5. Write to trajectories_baseline.jsonl
 
 Usage:
-    python -m deceptron.agent.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/baseline.jsonl
-    python -m deceptron.agent.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/baseline.jsonl --max-turns 20
+    python -m deceptron.agent.main --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/baseline.jsonl
+    python -m deceptron.agent.main --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/baseline.jsonl --max-turns 20
 """
 
 import argparse

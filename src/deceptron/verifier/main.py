@@ -1,10 +1,10 @@
 """Verify repos or trajectories in Docker.
 
 Repo mode:
-    python -m deceptron.verifier.run --repos data/deceptron/mining/repos.jsonl --out data/deceptron/mining/repos_verified.jsonl
+    python -m deceptron.verifier.main --repos data/deceptron/mining/repos.jsonl --out data/deceptron/mining/repos_verified.jsonl
 
 Trajectory mode:
-    python -m deceptron.verifier.run --trajectories data/deceptron/trajectories/baseline.jsonl \
+    python -m deceptron.verifier.main --trajectories data/deceptron/trajectories/baseline.jsonl \
                            --tasks data/deceptron/tasks/tasks.jsonl \
                            --repos data/deceptron/mining/repos_verified_clean.jsonl
 """
@@ -18,6 +18,8 @@ from deceptron.miner.schema import Repo
 from deceptron.verifier.deterministic import verify_repo
 from deceptron.verifier.schema import VerifiedRepo
 from deceptron.verifier.trajectory import verify_trajectory
+
+DEFAULT_VERIFY_REPOS_OUT = "data/deceptron/mining/repos_verified.jsonl"
 
 
 # ── Repo verification ──────────────────────────────────────────────────────────
@@ -38,26 +40,28 @@ def _load_seen_ids(path: str) -> set[int]:
     return seen
 
 
-def run_repos(args: argparse.Namespace) -> None:
-    repos_path = Path(args.repos)
+def run_verify_repo(repos: str, out: str) -> None:
+    """Verify each repo in `repos` (.jsonl) in Docker, appending results to
+    `out` (.jsonl, resume by id — safe to re-run/re-launch after a crash)."""
+    repos_path = Path(repos)
     if not repos_path.exists():
-        sys.exit(f"Error: {args.repos} not found. Run miner first.")
+        sys.exit(f"Error: {repos} not found. Run miner first.")
 
-    repos = []
+    repo_list = []
     with repos_path.open() as f:
         for line in f:
             line = line.strip()
             if line:
-                repos.append(Repo.model_validate_json(line))
+                repo_list.append(Repo.model_validate_json(line))
 
-    seen_ids = _load_seen_ids(args.out)
+    seen_ids = _load_seen_ids(out)
     if seen_ids:
         print(f"Resuming: {len(seen_ids)} repos already verified.")
 
-    pending = [r for r in repos if r.id not in seen_ids]
+    pending = [r for r in repo_list if r.id not in seen_ids]
     print(f"Verifying {len(pending)} repos (Docker required)...\n")
 
-    with open(args.out, "a", encoding="utf-8") as out_file:
+    with open(out, "a", encoding="utf-8") as out_file:
         for i, repo in enumerate(pending, 1):
             print(f"[{i}/{len(pending)}] {repo.full_name} — cloning + testing...")
             result = verify_repo(repo.clone_url, repo.default_branch)
@@ -82,7 +86,7 @@ def run_repos(args: argparse.Namespace) -> None:
 
     total = len(seen_ids) + len(pending)
     passed = sum(
-        1 for r in [json.loads(l) for l in Path(args.out).read_text().splitlines() if l]
+        1 for r in [json.loads(l) for l in Path(out).read_text().splitlines() if l]
         if r.get("test_verified")
     )
     print(f"\nDone. {passed}/{total} repos verified.")
@@ -126,13 +130,16 @@ def _load_python_versions(path: str) -> dict[str, str]:
     return versions
 
 
-def run_trajectories(args: argparse.Namespace) -> None:
-    traj_path = Path(args.trajectories)
+def run_verify_trajectories(trajectories_path: str, tasks: str, verified_repos: str) -> None:
+    """Apply each trajectory's patch in Docker, run its check scripts, and
+    update main_task_verified/side_task_verified in place (resumable — only
+    not-yet-fully-verified trajectories with a patch are reprocessed)."""
+    traj_path = Path(trajectories_path)
     if not traj_path.exists():
-        sys.exit(f"{args.trajectories} not found")
+        sys.exit(f"{trajectories_path} not found")
 
-    tasks = _load_tasks(args.tasks)
-    python_versions = _load_python_versions(args.repos)
+    tasks_by_id = _load_tasks(tasks)
+    python_versions = _load_python_versions(verified_repos)
 
     trajectories = []
     with traj_path.open() as f:
@@ -154,13 +161,13 @@ def run_trajectories(args: argparse.Namespace) -> None:
 
     for i, traj in enumerate(pending, 1):
         task_id = traj.get("task_id", "")
-        task = tasks.get(task_id)
+        task = tasks_by_id.get(task_id)
         full_name = traj["full_name"]
 
         print(f"[{i}/{len(pending)}] {full_name} ...", end=" ", flush=True)
 
         if not task:
-            print(f"✗ task {task_id} not found in {args.tasks}")
+            print(f"✗ task {task_id} not found in {tasks}")
             continue
 
         python_version = python_versions.get(full_name, "3.11")
@@ -214,12 +221,11 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.trajectories:
-        args.repos = args.verified_repos  # reuse _load_python_versions(args.repos)
-        run_trajectories(args)
+        run_verify_trajectories(args.trajectories, args.tasks, args.verified_repos)
     else:
         if not args.out:
             sys.exit("--out required in repo mode")
-        run_repos(args)
+        run_verify_repo(args.repos, args.out)
 
 
 if __name__ == "__main__":

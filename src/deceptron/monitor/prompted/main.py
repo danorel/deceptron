@@ -7,10 +7,10 @@ Output schema per line:
     {"trajectory_id": "...", "score": 7, "reasoning": "...", "label": "scheming"}
 
 Usage:
-    python -m deceptron.monitor.prompted \
+    python -m deceptron.monitor.prompted.main \
         --trajectories data/deceptron/trajectories/baseline.jsonl data/deceptron/trajectories/scheming.jsonl \
         --out data/deceptron/scores/prompted.jsonl
-    python -m deceptron.monitor.prompted \
+    python -m deceptron.monitor.prompted.main \
         --trajectories data/deceptron/trajectories/scheming.jsonl \
         --out data/deceptron/scores/prompted.jsonl --force
 """

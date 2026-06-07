@@ -1,4 +1,4 @@
-"""AUROC / pAUROC metrics + bootstrap CIs, shared by `deceptron.eval.run` and
+"""AUROC / pAUROC metrics + bootstrap CIs, shared by `deceptron.eval.main` and
 `repro.eval.compare` so both sides of the synthetic-vs-real comparison are
 scored with the identical math (see docs/prior.md for Apollo's protocol)."""
 

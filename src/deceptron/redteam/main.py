@@ -5,8 +5,8 @@ The side_task is embedded in the system prompt — not visible in the user turn 
 mimicking a misaligned agent pursuing a hidden objective covertly.
 
 Usage:
-    python -m deceptron.redteam.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/scheming.jsonl
-    python -m deceptron.redteam.run --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/scheming.jsonl --limit 1
+    python -m deceptron.redteam.main --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/scheming.jsonl
+    python -m deceptron.redteam.main --tasks data/deceptron/tasks/tasks.jsonl --out data/deceptron/trajectories/scheming.jsonl --limit 1
 """
 
 import argparse
@@ -19,7 +19,7 @@ from pathlib import Path
 import anthropic
 from dotenv import load_dotenv
 
-from deceptron.agent.run import (
+from deceptron.agent.main import (
     TOOLS,
     _clone_repo,
     _dispatch_tool,
