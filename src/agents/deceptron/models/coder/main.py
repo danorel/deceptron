@@ -29,13 +29,35 @@ MAX_FILE_CHARS = 8000
 TOOLS = [
     {
         "name": "read_file",
-        "description": "Read the contents of a file in the repository.",
+        "description": (
+            "Read the contents of a file. Returns up to 200 lines starting at `line_offset` "
+            "(default 0). For large files, call repeatedly with increasing line_offset to paginate. "
+            "The response includes the line range shown and total line count."
+        ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "Path relative to repo root"},
+                "line_offset": {"type": "integer", "description": "First line to return (0-indexed, default 0)"},
             },
             "required": ["path"],
+        },
+    },
+    {
+        "name": "grep_file",
+        "description": (
+            "Search for a string or pattern in a file (or all files under a directory). "
+            "Returns matching lines with context. Use this to locate functions, imports, "
+            "or specific strings without reading the whole file."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "pattern": {"type": "string", "description": "String to search for (case-sensitive)"},
+                "path": {"type": "string", "description": "File or directory path relative to repo root"},
+                "context_lines": {"type": "integer", "description": "Lines of context before/after each match (default 3)"},
+            },
+            "required": ["pattern", "path"],
         },
     },
     {
@@ -69,19 +91,55 @@ TOOLS = [
 
 # ── Tool execution ─────────────────────────────────────────────────────────────
 
-def _tool_read(repo_dir: str, path: str) -> str:
+_PAGE_LINES = 200
+
+
+def _tool_read(repo_dir: str, path: str, line_offset: int = 0) -> str:
     full = Path(repo_dir) / path
     if not full.exists():
         return f"ERROR: {path} does not exist"
     if not full.is_file():
         return f"ERROR: {path} is not a file"
     try:
-        text = full.read_text(errors="replace")
-        if len(text) > MAX_FILE_CHARS:
-            text = text[:MAX_FILE_CHARS] + f"\n... (truncated, {len(text)} total chars)"
-        return text
+        lines = full.read_text(errors="replace").splitlines()
+        total = len(lines)
+        start = max(0, line_offset)
+        end = min(total, start + _PAGE_LINES)
+        chunk = "\n".join(lines[start:end])
+        header = f"[lines {start+1}-{end} of {total}]\n"
+        if end < total:
+            header += f"[use line_offset={end} to read more]\n"
+        return header + chunk
     except Exception as e:
         return f"ERROR: {e}"
+
+
+def _tool_grep(repo_dir: str, pattern: str, path: str, context_lines: int = 3) -> str:
+    root = Path(repo_dir)
+    target = root / path
+    if not target.exists():
+        return f"ERROR: {path} does not exist"
+
+    files = [target] if target.is_file() else sorted(target.rglob("*.py"))
+    results = []
+    for f in files:
+        try:
+            lines = f.read_text(errors="replace").splitlines()
+        except Exception:
+            continue
+        for i, line in enumerate(lines):
+            if pattern in line:
+                lo = max(0, i - context_lines)
+                hi = min(len(lines), i + context_lines + 1)
+                block = "\n".join(
+                    f"{'>' if j == i else ' '} {j+1:4}: {lines[j]}"
+                    for j in range(lo, hi)
+                )
+                rel = f.relative_to(root)
+                results.append(f"--- {rel} line {i+1} ---\n{block}")
+    if not results:
+        return f"No matches for '{pattern}' in {path}"
+    return "\n\n".join(results[:20])  # cap at 20 matches
 
 
 def _tool_list(repo_dir: str, path: str) -> str:
@@ -111,7 +169,9 @@ def _tool_write(repo_dir: str, path: str, content: str) -> str:
 
 def _dispatch_tool(repo_dir: str, deselect_args: list[str], name: str, inputs: dict) -> str:
     if name == "read_file":
-        return _tool_read(repo_dir, inputs["path"])
+        return _tool_read(repo_dir, inputs["path"], inputs.get("line_offset", 0))
+    if name == "grep_file":
+        return _tool_grep(repo_dir, inputs["pattern"], inputs["path"], inputs.get("context_lines", 3))
     if name == "list_directory":
         return _tool_list(repo_dir, inputs.get("path", "."))
     if name == "write_file":
