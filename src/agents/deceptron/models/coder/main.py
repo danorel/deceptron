@@ -8,7 +8,9 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import anthropic
@@ -257,7 +259,16 @@ def _load_seen(path: str) -> set[str]:
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
-def run(tasks: str, out: str, max_turns: int, limit: int, delay: int) -> None:
+def _make_error_traj(task: TaskPair, error: Exception) -> Trajectory:
+    return Trajectory(
+        task_id=task.id, full_name=task.full_name, repo_url=task.repo_url,
+        clone_url=task.clone_url, default_branch=task.default_branch,
+        verified_sha=task.verified_sha, deselect_args=task.deselect_args,
+        python_version="", main_task=task.main_task, label="baseline", error=str(error),
+    )
+
+
+def run(tasks: str, out: str, max_turns: int, limit: int, delay: int, workers: int = 1) -> None:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         sys.exit("ANTHROPIC_API_KEY not set")
@@ -282,36 +293,49 @@ def run(tasks: str, out: str, max_turns: int, limit: int, delay: int) -> None:
 
     print(f"Tasks: {len(task_pairs)} total, {len(seen)} already done, {len(pending)} to run")
 
+    lock = threading.Lock()
     written = 0
+
     with open(out, "a", encoding="utf-8") as out_file:
-        for i, task in enumerate(pending, 1):
-            print(f"\n[{i}/{len(pending)}] {task.full_name} — {task.main_task_function}")
-            try:
-                traj = _run_agent(task, client, max_turns=max_turns)
-                has_patch = bool(traj.final_patch.strip())
-                status = "✓ patch" if has_patch else ("✗ " + (traj.error or "no patch"))
-                turns = len([s for s in traj.steps if s.role == "assistant"])
-                print(f"  {status} ({turns} turns)")
-            except Exception as e:
-                print(f"  error: {e}")
-                traj = Trajectory(
-                    task_id=task.id,
-                    full_name=task.full_name,
-                    repo_url=task.repo_url,
-                    clone_url=task.clone_url,
-                    default_branch=task.default_branch,
-                    verified_sha=task.verified_sha,
-                    deselect_args=task.deselect_args,
-                    python_version="",
-                    main_task=task.main_task,
-                    label="baseline",
-                    error=str(e),
-                )
-            out_file.write(traj.model_dump_json() + "\n")
-            out_file.flush()
-            if delay and i < len(pending):
-                time.sleep(delay)
-            written += 1
+        if workers > 1:
+            def _process(task: TaskPair) -> Trajectory:
+                try:
+                    return _run_agent(task, client, max_turns=max_turns)
+                except Exception as e:
+                    return _make_error_traj(task, e)
+
+            done = 0
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                futures = {executor.submit(_process, t): t for t in pending}
+                for future in as_completed(futures):
+                    task = futures[future]
+                    traj = future.result()
+                    done += 1
+                    has_patch = bool((traj.final_patch or "").strip())
+                    turns = len([s for s in traj.steps if s.role == "assistant"])
+                    status = "✓" if has_patch else ("✗ " + (traj.error or "no patch"))
+                    print(f"  [{done}/{len(pending)}] {task.full_name} {status} ({turns} turns)")
+                    with lock:
+                        out_file.write(traj.model_dump_json() + "\n")
+                        out_file.flush()
+                        written += 1
+        else:
+            for i, task in enumerate(pending, 1):
+                print(f"\n[{i}/{len(pending)}] {task.full_name} — {task.main_task_function}")
+                try:
+                    traj = _run_agent(task, client, max_turns=max_turns)
+                    has_patch = bool(traj.final_patch.strip())
+                    status = "✓ patch" if has_patch else ("✗ " + (traj.error or "no patch"))
+                    turns = len([s for s in traj.steps if s.role == "assistant"])
+                    print(f"  {status} ({turns} turns)")
+                except Exception as e:
+                    print(f"  error: {e}")
+                    traj = _make_error_traj(task, e)
+                out_file.write(traj.model_dump_json() + "\n")
+                out_file.flush()
+                if delay and i < len(pending):
+                    time.sleep(delay)
+                written += 1
 
     print(f"\nDone. {written} trajectories written to {out}")
 
@@ -324,9 +348,11 @@ def main() -> None:
     parser.add_argument("--max-turns", type=int, default=MAX_TURNS)
     parser.add_argument("--limit", type=int, default=0, help="Process at most N tasks (0=all)")
     parser.add_argument("--delay", type=int, default=12,
-                        help="Seconds to wait between tasks to avoid rate limits (default 12)")
+                        help="Seconds to wait between tasks to avoid rate limits (default 12, ignored when --workers > 1)")
+    parser.add_argument("--workers", type=int, default=1,
+                        help="Parallel workers (default 1 = sequential)")
     args = parser.parse_args()
-    run(args.tasks, args.out, args.max_turns, args.limit, args.delay)
+    run(args.tasks, args.out, args.max_turns, args.limit, args.delay, args.workers)
 
 
 if __name__ == "__main__":
