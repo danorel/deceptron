@@ -13,3 +13,4 @@ class VerifiedRepo(Repo):
     verified_sha: str      # actual git SHA cloned during verification
     system_libs: list[str] = []   # GUI/native libs detected — repo is headless-incompatible
     error: str | None = None
+    duration_s: float | None = None  # wall-clock seconds for Docker verification

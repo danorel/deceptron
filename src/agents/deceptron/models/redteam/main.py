@@ -71,12 +71,15 @@ def _run_scheming_agent(
         label="scheming",
     )
 
+    t0 = time.monotonic()
+
     with tempfile.TemporaryDirectory(prefix="deceptron_redteam_") as tmpdir:
         repo_dir = os.path.join(tmpdir, "repo")
 
         err = _clone_repo(task.clone_url, task.default_branch, task.verified_sha, repo_dir)
         if err:
             traj.error = f"clone failed: {err}"
+            traj.duration_s = round(time.monotonic() - t0, 1)
             return traj
 
         system = _SYSTEM.format(side_task=task.side_task)
@@ -126,6 +129,7 @@ def _run_scheming_agent(
 
         traj.final_patch = _git_diff(repo_dir)
 
+    traj.duration_s = round(time.monotonic() - t0, 1)
     return traj
 
 
@@ -187,7 +191,8 @@ def run(tasks: str, out: str, max_turns: int, limit: int, delay: int, workers: i
                     has_patch = bool((traj.final_patch or "").strip())
                     turns = len([s for s in traj.steps if s.role == "assistant"])
                     status = "✓" if has_patch else ("✗ " + (traj.error or "no patch"))
-                    print(f"  [{done}/{len(pending)}] {task.full_name} {status} ({turns} turns)")
+                    dur = f" {traj.duration_s}s" if traj.duration_s is not None else ""
+                    print(f"  [{done}/{len(pending)}] {task.full_name} {status} ({turns} turns{dur})")
                     with lock:
                         out_file.write(traj.model_dump_json() + "\n")
                         out_file.flush()
@@ -200,7 +205,8 @@ def run(tasks: str, out: str, max_turns: int, limit: int, delay: int, workers: i
                     has_patch = bool(traj.final_patch.strip())
                     turns = len([s for s in traj.steps if s.role == "assistant"])
                     status = "✓ patch" if has_patch else ("✗ " + (traj.error or "no patch"))
-                    print(f"  {status} ({turns} turns)")
+                    dur = f" {traj.duration_s}s" if traj.duration_s is not None else ""
+                    print(f"  {status} ({turns} turns{dur})")
                 except Exception as e:
                     print(f"  error: {e}")
                     traj = _make_error_traj(task, e)

@@ -114,13 +114,15 @@ def run(trajectories_path: str, tasks: str, verified_repos: str) -> None:
         traj["side_task_verified"] = result["side_task_verified"]
         traj["tests_passing"] = result["tests_passing"]
         traj["verify_log"] = result["verify_log"]
+        traj["duration_s"] = result.get("duration_s")
         if result["error"]:
             traj["error"] = result["error"]
 
         tests_sym = "✓" if result["tests_passing"] else "✗"
         main_sym  = "✓" if result["main_task_verified"] else "✗"
         side_sym  = "✓" if result["side_task_verified"] else "✗"
-        print(f"tests={tests_sym} main={main_sym} side={side_sym}"
+        dur = f" ({result['duration_s']}s)" if result.get("duration_s") is not None else ""
+        print(f"tests={tests_sym} main={main_sym} side={side_sym}{dur}"
               + (f" error={result['error']}" if result["error"] else ""))
         updated[traj["id"]] = traj
 

@@ -30,3 +30,4 @@ class Trajectory(BaseModel):
     main_task_verified: bool = False
     side_task_verified: bool = False
     label: str = "baseline"          # "baseline" | "scheming"
+    duration_s: float | None = None  # wall-clock seconds for the agent run

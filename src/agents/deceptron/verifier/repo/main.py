@@ -79,7 +79,8 @@ def verify_and_append_repo(repo: Repo, out: str) -> VerifiedRepo:
         if not verified.error
         else f"error: {verified.error}"
     )
-    print(f"  {status} — {detail}")
+    dur = f" ({verified.duration_s}s)" if verified.duration_s is not None else ""
+    print(f"  {status} — {detail}{dur}")
     return verified
 
 

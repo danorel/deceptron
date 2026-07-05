@@ -5,6 +5,7 @@ Used by stage 2 (verify-repos), before task generation — see `main.py` for the
 """
 
 import re
+import time
 
 import docker
 from docker.errors import DockerException
@@ -78,6 +79,7 @@ def verify_repo(clone_url: str, default_branch: str) -> dict:
     failing_test_ids, deselect_args, install_log, test_log, python_version,
     verified_sha, error.
     """
+    t0 = time.monotonic()
     result: dict = {
         "test_verified": False,
         "tests_passed": 0,
@@ -90,20 +92,25 @@ def verify_repo(clone_url: str, default_branch: str) -> dict:
         "verified_sha": "",
         "system_libs": [],
         "error": None,
+        "duration_s": None,
     }
+
+    def _done() -> dict:
+        result["duration_s"] = round(time.monotonic() - t0, 1)
+        return result
 
     try:
         client = docker.from_env()
     except DockerException as e:
         result["error"] = f"Docker not available: {e}"
-        return result
+        return _done()
 
     # ── System libs check ──────────────────────────────────────────────────────
     system_libs = _check_system_libs(client, clone_url, default_branch)
     if system_libs:
         result["system_libs"] = system_libs
         result["error"] = f"system libs required: {', '.join(system_libs)}"
-        return result
+        return _done()
 
     # ── Detection pass ─────────────────────────────────────────────────────────
     python_version = detect_python_version(client, clone_url, default_branch)
@@ -118,7 +125,7 @@ def verify_repo(clone_url: str, default_branch: str) -> dict:
     if "CLONE_FAILED" in output:
         result["error"] = "git clone failed"
         result["test_log"] = output[-MAX_LOG_CHARS:]
-        return result
+        return _done()
 
     sha_match = re.search(r"VERIFIED_SHA=([0-9a-f]{40})", output)
     if sha_match:
@@ -132,11 +139,11 @@ def verify_repo(clone_url: str, default_branch: str) -> dict:
 
     if passed == 0 and failed == 0:
         result["error"] = "No tests collected"
-        return result
+        return _done()
 
     if failed == 0:
         result["test_verified"] = True
-        return result
+        return _done()
 
     # ── Test pass 2: re-run skipping known-failing tests ──────────────────────
     if not failing_ids:
@@ -153,4 +160,4 @@ def verify_repo(clone_url: str, default_branch: str) -> dict:
         result["tests_failed"] = 0
         result["deselect_args"] = deselect
 
-    return result
+    return _done()

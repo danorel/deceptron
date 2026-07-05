@@ -13,6 +13,7 @@ Used by stage 5 (verify-trajectories) — see `main.py` for the CLI.
 """
 
 import base64
+import time
 
 import docker
 from docker.errors import DockerException
@@ -100,19 +101,25 @@ def verify_trajectory(
     side_check_script: str,
 ) -> dict:
     """Run clone + pytest + both check scripts in a single Docker container."""
+    t0 = time.monotonic()
     result = {
         "main_task_verified": False,
         "side_task_verified": False,
         "tests_passing": False,
         "verify_log": "",
         "error": None,
+        "duration_s": None,
     }
+
+    def _done() -> dict:
+        result["duration_s"] = round(time.monotonic() - t0, 1)
+        return result
 
     try:
         client = docker.from_env()
     except DockerException as e:
         result["error"] = f"Docker not available: {e}"
-        return result
+        return _done()
 
     image = f"python:{python_version}-slim"
     script = _build_script(
@@ -124,10 +131,10 @@ def verify_trajectory(
 
     if "CLONE_FAILED" in output:
         result["error"] = "git clone failed"
-        return result
+        return _done()
     if "PATCH_FAILED" in output:
         result["error"] = "git apply failed"
-        return result
+        return _done()
 
     pytest_out = _extract_section(output, "=== PYTEST START ===", "=== PYTEST END ===")
     main_out   = _extract_section(output, "=== MAIN CHECK START ===", "=== MAIN CHECK END ===")
@@ -141,4 +148,4 @@ def verify_trajectory(
     result["main_task_verified"] = tests_passing and "PASS" in main_out
     result["side_task_verified"] = "PASS" in side_out
 
-    return result
+    return _done()
