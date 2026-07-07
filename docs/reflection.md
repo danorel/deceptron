@@ -3,11 +3,9 @@
 ## Hypothesis
 
 Deterministic ground truth on real GitHub repos + parameter-level monitor training
-(LoRA SFT on Qwen2.5-7B) should beat a prompt-only monitor trained on synthetic data —
-better calibration on out-of-distribution scheming.
+(LoRA SFT on Qwen2.5-7B) should beat a prompt-only monitor trained on synthetic data — better calibration on out-of-distribution scheming.
 
-Motivation: coding agents moving into high-stakes environments — undetected deception
-there causes security failures with no after-the-fact recourse.
+Motivation: coding agents moving into high-stakes environments — undetected deception there causes security failures with no after-the-fact recourse.
 
 | Gap in Apollo's setup | deceptron's response |
 |---|---|
@@ -34,8 +32,7 @@ Expected the monitor to be the hard part. It's sourcing verifiable repos and tra
 - Of those, many lack tests or ship broken ones — only knowable after a full clone+run
 - **>70% of candidate repos dropped**
 
-Reframe: the binding constraint is extracting clean ground truth, not building or
-training the monitor. Every valid trajectory is expensive — directly caps eval size.
+Reframe: the binding constraint is extracting clean ground truth, not building or training the monitor. Every valid trajectory is expensive — directly caps eval size.
 
 ## What I'd do differently
 
@@ -47,6 +44,4 @@ read the result — then decide whether the larger build is warranted.
 
 1. **Core:** does a parameter-level monitor improve over prompt-only, and generalize
    better OOD? No results yet.
-2. **CoT blind spot** (Korbak et al.): deceptron ignores CoT entirely — a clean design
-   choice (only outcomes are verifiable) but a known gap. Future: add CoT as input,
-   test whether it helps or degrades under red-team pressure.
+2. **CoT blind spot** (Korbak et al.): deceptron ignores CoT entirely — a clean design choice (only outcomes are verifiable) but a known gap. Future: add CoT as input, test whether it helps or degrades under red-team pressure.
