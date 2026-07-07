@@ -21,7 +21,7 @@ from agents.deceptron.models.coder.schema import Trajectory, TrajectoryStep
 from agents.deceptron.tasks.schema import TaskPair
 
 MODEL = "claude-haiku-4-5-20251001"
-MAX_TURNS = 30
+MAX_TURNS = 15
 MAX_FILE_CHARS = 8000
 
 # ── Tools exposed to the agent ────────────────────────────────────────────────
@@ -85,6 +85,7 @@ TOOLS = [
             },
             "required": ["path", "content"],
         },
+        "cache_control": {"type": "ephemeral"},
     },
 ]
 
@@ -202,6 +203,28 @@ def _git_diff(repo_dir: str) -> str:
     return r.stdout
 
 
+# ── Cost optimizations ────────────────────────────────────────────────────────
+
+_MSG_WINDOW = 6  # keep first user message + last N assistant/tool pairs
+
+
+def _trim_messages(messages: list) -> list:
+    """Sliding window: keep first message (task context) + last _MSG_WINDOW pairs.
+
+    Prevents unbounded input-token growth in long agentic loops. Tool_use and
+    tool_result messages must stay paired — we always start the tail on an
+    assistant turn so the pair invariant holds.
+    """
+    max_tail = _MSG_WINDOW * 2
+    if len(messages) <= max_tail + 1:
+        return messages
+    tail = messages[-max_tail:]
+    # Ensure tail starts with an assistant message (not a dangling tool_result)
+    while tail and tail[0].get("role") != "assistant":
+        tail = tail[1:]
+    return messages[:1] + tail
+
+
 # ── Agent loop ─────────────────────────────────────────────────────────────────
 
 def _run_agent(
@@ -257,9 +280,12 @@ def _run_agent(
             }
         ]
 
+        system_block = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+
         for turn in range(max_turns):
             response = create_with_retry(client, model=MODEL, max_tokens=4096,
-                                          system=system, tools=TOOLS, messages=messages)
+                                          system=system_block, tools=TOOLS,
+                                          messages=_trim_messages(messages))
 
             # Record assistant turn
             traj.steps.append(

@@ -22,6 +22,9 @@ from agents.deceptron.verifier.docker import (
     MAX_LOG_CHARS,
     TEST_TIMEOUT,
     GIT_INSTALL,
+    UV_INSTALL,
+    UV_PIP,
+    image_for,
     run_container,
 )
 
@@ -50,7 +53,7 @@ def _build_script(
     return (
         GIT_INSTALL
         # Clone at branch, checkout exact SHA
-        + f"git clone --depth=50 --branch {branch} {clone_url} /repo 2>&1 "
+        + f"git clone --depth=200 --branch {branch} {clone_url} /repo 2>&1 "
         + "|| { echo 'CLONE_FAILED'; exit 0; }\n"
         + f"cd /repo && git checkout {sha} -q\n"
         # Apply patch
@@ -59,17 +62,18 @@ def _build_script(
         + "    git apply /tmp/agent.patch 2>&1 || { echo 'PATCH_FAILED'; exit 0; }\n"
         + "fi\n"
         # Install dependencies
-        + "pip install pytest -q 2>&1\n"
-        + "[ -f requirements.txt ] && pip install -r requirements.txt -q 2>&1 || true\n"
+        + UV_INSTALL
+        + f"{UV_PIP} pytest pytest-xdist -q 2>&1\n"
+        + f"[ -f requirements.txt ] && {UV_PIP} -r requirements.txt -q 2>&1 || true\n"
         + "for req in requirements-dev.txt requirements-test.txt; do\n"
-        + "    [ -f $req ] && pip install -r $req -q 2>&1 || true\n"
+        + f"    [ -f $req ] && {UV_PIP} -r $req -q 2>&1 || true\n"
         + "done\n"
-        + "[ -f setup.py ] && pip install -e . -q 2>&1 || true\n"
-        + "[ -f pyproject.toml ] && pip install -e . -q 2>&1 || true\n"
+        + f"[ -f setup.py ] && {UV_PIP} -e . -q 2>&1 || true\n"
+        + f"[ -f pyproject.toml ] && {UV_PIP} -e . -q 2>&1 || true\n"
         # Run pytest
         + "echo '=== PYTEST START ==='\n"
         + f"cd /repo && PYTHONPATH=/repo timeout {TEST_TIMEOUT} "
-        + f"pytest --tb=line -q --no-header {deselect} 2>&1\n"
+        + f"pytest -n auto --tb=line -q --no-header {deselect} 2>&1\n"
         + "echo '=== PYTEST END ==='\n"
         # Run main check script
         + f'echo "{b64_main}" | base64 -d > /tmp/main_check.py\n'
@@ -121,7 +125,7 @@ def verify_trajectory(
         result["error"] = f"Docker not available: {e}"
         return _done()
 
-    image = f"python:{python_version}-slim"
+    image = image_for(python_version)
     script = _build_script(
         clone_url, branch, sha, patch, deselect_args, main_check_script, side_check_script
     )

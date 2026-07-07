@@ -1,12 +1,14 @@
 """Docker-based test verification: detect Python version, install + run test
 suite, retry with `--deselect` on a failing-but-usable suite."""
 
+import os
 import re
+import time
+from pathlib import Path
 
 import docker
 from docker.errors import DockerException
 
-DETECTION_IMAGE = "python:3.11-slim"
 SUPPORTED_PYTHON_VERSIONS = {"3.9", "3.10", "3.11", "3.12", "3.13"}
 DEFAULT_PYTHON_VERSION = "3.11"
 TEST_TIMEOUT = 600       # seconds pytest is allowed to run (bash timeout command)
@@ -14,47 +16,33 @@ SOCKET_TIMEOUT = 660     # Docker API socket timeout — must exceed TEST_TIMEOU
 MAX_RETRIES = 2          # retries for transient connection errors
 MAX_LOG_CHARS = 4000
 
-# Bash snippet shared by all container runs: install git + clone.
-# build-essential/python3-dev — python:slim has no compiler toolchain, so any
-# dependency with a C extension and no prebuilt wheel for our arch (pysqlcipher3,
-# mgrs, etc.) fails to build, often aborting the whole `pip install -r
-# requirements.txt` and leaving even pure-python deps uninstalled — surfacing
-# later as misleading "No tests collected" / ModuleNotFoundError.
-GIT_INSTALL = """\
+# Set DECEPTRON_BASE_IMAGE_PREFIX=<repo>/<name> to use pre-built images that
+# already have git, build-essential, python3-dev, and uv — skips ~13s of
+# apt-get + pip install uv per container. Images are expected at
+# <prefix>:<python-version> (e.g. danorel/deceptron-base:3.11).
+# See docker/base/Dockerfile and the build instructions in .env.example.
+_BASE_PREFIX = os.environ.get("DECEPTRON_BASE_IMAGE_PREFIX", "")
+
+
+def image_for(python_version: str = DEFAULT_PYTHON_VERSION) -> str:
+    """Return the Docker image tag for a given Python version."""
+    if _BASE_PREFIX:
+        return f"{_BASE_PREFIX}:{python_version}"
+    return f"python:{python_version}-slim"
+
+
+# These are empty strings when pre-built images are used (tools already present).
+GIT_INSTALL = "" if _BASE_PREFIX else """\
 apt-get update -qq > /dev/null 2>&1
 apt-get install -y git build-essential python3-dev -qq > /dev/null 2>&1
 """
+UV_INSTALL = "" if _BASE_PREFIX else "pip install -q uv 2>&1\n"
+UV_PIP     = "uv pip install --system -q"
 
-# Python snippet run inside container to detect required version
-_DETECT_PY = """\
-import re, sys
-
-def _find(text, patterns):
-    for pat in patterns:
-        m = re.search(pat, text)
-        if m:
-            parts = m.group(1).split('.')
-            return '.'.join(parts[:2])
-    return None
-
-for fname, patterns in [
-    ('.python-version',  [r'(\d+\.\d+)']),
-    ('pyproject.toml',   [r'requires-python\s*=\s*["\\\\'\\''>=<^~]*(\d+\.\d+)',
-                          r'python\s*=\s*["\\\\'\\''\\^~>=<]*(\d+\.\d+)']),
-    ('setup.cfg',        [r'python_requires\s*=\s*[>=<^~]*(\d+\.\d+)']),
-    ('setup.py',         [r'python_requires\s*=\s*["\\\\'\\''>=<^~]*(\d+\.\d+)']),
-]:
-    try:
-        content = open(fname).read()
-        ver = _find(content, patterns)
-        if ver:
-            print('PYTHON_VERSION=' + ver)
-            sys.exit(0)
-    except FileNotFoundError:
-        pass
-
-print('PYTHON_VERSION=3.11')
-"""
+# Host-side uv cache dir. Mounted read-write into every container so uv
+# reuses downloaded wheels/metadata across repo verification runs.
+_UV_CACHE_HOST = str(Path.home() / ".cache" / "uv")
+_UV_CACHE_GUEST = "/root/.cache/uv"
 
 
 def run_container(
@@ -62,7 +50,8 @@ def run_container(
 ) -> tuple[str, str | None]:
     """Run a bash script in a fresh container, retrying on transient connection
     errors. `timeout` inside the script handles run-length limits."""
-    import time
+    Path(_UV_CACHE_HOST).mkdir(parents=True, exist_ok=True)
+    volumes = {_UV_CACHE_HOST: {"bind": _UV_CACHE_GUEST, "mode": "rw"}}
 
     last_err: str = ""
     for attempt in range(1, MAX_RETRIES + 1):
@@ -75,6 +64,7 @@ def run_container(
                 stdout=True,
                 stderr=True,
                 mem_limit="2g",
+                volumes=volumes,
             )
             result = container.wait(timeout=SOCKET_TIMEOUT)
             output = container.logs(stdout=True, stderr=True).decode("utf-8", errors="replace")
@@ -100,52 +90,29 @@ def run_container(
     return "", last_err
 
 
-def detect_python_version(client: docker.DockerClient, clone_url: str, branch: str) -> str:
-    """Clone repo and detect required Python version. Returns 'major.minor' string."""
-    script = (
-        GIT_INSTALL
-        + f"git clone --depth=1 --branch {branch} {clone_url} /repo 2>&1 "
-        + f"|| {{ echo 'PYTHON_VERSION={DEFAULT_PYTHON_VERSION}'; exit 0; }}\n"
-        + "cd /repo\n"
-        + f"python3 -c '{_DETECT_PY}'\n"
-    )
-    output, _ = run_container(client, DETECTION_IMAGE, script)
-    m = re.search(r"PYTHON_VERSION=(\d+\.\d+)", output)
-    if m:
-        version = m.group(1)
-        if version in SUPPORTED_PYTHON_VERSIONS:
-            return version
-    return DEFAULT_PYTHON_VERSION
-
-
 def build_install_script(clone_url: str, branch: str) -> str:
-    """Bash fragment: clone repo and install dependencies into /repo.
-
-    `uv pip install --system` replaces plain `pip install` — much faster
-    resolver/downloads, slightly stricter about broken pins (fine, every
-    install here is already best-effort)."""
-    pip = "uv pip install --system -q"
+    """Bash fragment: clone repo and install dependencies into /repo."""
     return (
         GIT_INSTALL
-        + "pip install -q uv 2>&1\n"
+        + UV_INSTALL
         + f"git clone --depth=1 --branch {branch} {clone_url} /repo 2>&1 "
         + "|| { echo 'CLONE_FAILED'; exit 1; }\n"
         + "cd /repo\n"
         + "echo \"VERIFIED_SHA=$(git rev-parse HEAD)\"\n"
         + "echo '=== INSTALL START ==='\n"
-        + f"{pip} pytest pytest-xdist 2>&1\n"
+        + f"{UV_PIP} pytest pytest-xdist 2>&1\n"
         + "if [ -f requirements.txt ]; then\n"
-        + f"    {pip} -r requirements.txt 2>&1 || echo 'WARN: requirements.txt install had errors'\n"
+        + f"    {UV_PIP} -r requirements.txt 2>&1 || echo 'WARN: requirements.txt install had errors'\n"
         + "fi\n"
         + "for req in requirements-dev.txt requirements-test.txt requirements_dev.txt requirements_test.txt; do\n"
-        + f"    [ -f $req ] && {pip} -r $req 2>&1 || true\n"
+        + f"    [ -f $req ] && {UV_PIP} -r $req 2>&1 || true\n"
         + "done\n"
         + "if [ -f setup.py ]; then\n"
-        + f"    {pip} -e . 2>&1 || echo 'WARN: setup.py install had errors'\n"
-        + f"    {pip} -e '.[dev]' 2>&1 || {pip} -e '.[test]' 2>&1 || true\n"
+        + f"    {UV_PIP} -e . 2>&1 || echo 'WARN: setup.py install had errors'\n"
+        + f"    {UV_PIP} -e '.[dev]' 2>&1 || {UV_PIP} -e '.[test]' 2>&1 || true\n"
         + "elif [ -f pyproject.toml ]; then\n"
-        + f"    {pip} -e . 2>&1 || echo 'WARN: pyproject.toml install had errors'\n"
-        + f"    {pip} -e '.[dev]' 2>&1 || {pip} -e '.[test]' 2>&1 || true\n"
+        + f"    {UV_PIP} -e . 2>&1 || echo 'WARN: pyproject.toml install had errors'\n"
+        + f"    {UV_PIP} -e '.[dev]' 2>&1 || {UV_PIP} -e '.[test]' 2>&1 || true\n"
         + "fi\n"
         + "echo '=== INSTALL END ==='\n"
     )
@@ -180,5 +147,3 @@ def split_logs(output: str) -> tuple[str, str]:
         install_part, test_part = output.split("=== INSTALL END ===", 1)
         return install_part[-MAX_LOG_CHARS:], test_part[-MAX_LOG_CHARS:]
     return "", output[-MAX_LOG_CHARS:]
-
-

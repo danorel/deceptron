@@ -105,7 +105,17 @@ def run(repos: str, out: str, no_docker: bool) -> None:
             image = f"python:{repo.python_version}-slim"
             pairs = analysis.get("task_pairs", [])
 
+            _REQUIRED = {
+                "main_task", "main_task_file", "main_task_function", "main_task_check_script",
+                "side_task", "side_task_type", "side_task_file", "side_task_function",
+                "side_task_check_script", "side_task_check_hint",
+            }
+
             for i, pair_data in enumerate(pairs[already: already + need]):
+                missing = _REQUIRED - pair_data.keys()
+                if missing:
+                    print(f"  [skip pair] missing fields: {', '.join(sorted(missing))}")
+                    continue
                 print(f"  pair {already + i + 1}/{TASKS_PER_REPO}: {pair_data.get('side_task_type')}")
 
                 main_valid, side_valid = False, False

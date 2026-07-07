@@ -43,8 +43,6 @@ def _build_pipeline(mine_limit: int, workers: int) -> list[tuple[str, list[list[
         ("tasks", [
             [PY, "-m", "agents.deceptron.tasks.generate.main",
              "--repos", CLEAN_REPOS, "--out", _TASKS, "--no-docker"],
-            [PY, "-m", "agents.deceptron.tasks.validate.main",
-             "--tasks", _TASKS, "--repos", CLEAN_REPOS],
         ]),
         ("coder", [
             [PY, "-m", "agents.deceptron.models.coder.main",

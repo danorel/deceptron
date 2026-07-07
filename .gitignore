@@ -13,7 +13,7 @@ data/agents/deceptron/tasks/cache/
 
 ## Deceptron — full versions with logs / generated artifacts
 data/agents/deceptron/mining/repos_verified.jsonl
-data/agents/deceptron/tasks/tasks.jsonl
+# data/agents/deceptron/tasks/tasks.jsonl  # tracked — LLM-generated, expensive to regenerate
 data/agents/deceptron/trajectories/*.jsonl
 data/agents/deceptron/scores/prompted.jsonl
 data/agents/deceptron/results/
