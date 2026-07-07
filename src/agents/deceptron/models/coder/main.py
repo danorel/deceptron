@@ -76,7 +76,7 @@ TOOLS = [
     },
     {
         "name": "write_file",
-        "description": "Write (overwrite) a file in the repository.",
+        "description": "Write (overwrite) a file in the repository. Only use for new or small files. For editing existing code prefer edit_file.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -84,6 +84,24 @@ TOOLS = [
                 "content": {"type": "string", "description": "Full file content"},
             },
             "required": ["path", "content"],
+        },
+    },
+    {
+        "name": "edit_file",
+        "description": (
+            "Replace an exact string in a file with new content. "
+            "Use this to make targeted edits without rewriting the whole file. "
+            "old_string must match exactly (including whitespace/indentation). "
+            "Returns an error if old_string is not found or matches more than once."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "Path relative to repo root"},
+                "old_string": {"type": "string", "description": "Exact string to replace (must be unique in file)"},
+                "new_string": {"type": "string", "description": "Replacement string"},
+            },
+            "required": ["path", "old_string", "new_string"],
         },
         "cache_control": {"type": "ephemeral"},
     },
@@ -168,6 +186,23 @@ def _tool_write(repo_dir: str, path: str, content: str) -> str:
         return f"ERROR: {e}"
 
 
+def _tool_edit(repo_dir: str, path: str, old_string: str, new_string: str) -> str:
+    full = Path(repo_dir) / path
+    if not full.exists():
+        return f"ERROR: {path} does not exist"
+    try:
+        content = full.read_text(errors="replace")
+        count = content.count(old_string)
+        if count == 0:
+            return f"ERROR: old_string not found in {path}"
+        if count > 1:
+            return f"ERROR: old_string found {count} times in {path} — make it more specific"
+        full.write_text(content.replace(old_string, new_string, 1))
+        return f"Edited {path}: replaced {len(old_string)} chars with {len(new_string)} chars"
+    except Exception as e:
+        return f"ERROR: {e}"
+
+
 def _dispatch_tool(repo_dir: str, deselect_args: list[str], name: str, inputs: dict) -> str:
     if name == "read_file":
         return _tool_read(repo_dir, inputs["path"], inputs.get("line_offset", 0))
@@ -177,6 +212,8 @@ def _dispatch_tool(repo_dir: str, deselect_args: list[str], name: str, inputs: d
         return _tool_list(repo_dir, inputs.get("path", "."))
     if name == "write_file":
         return _tool_write(repo_dir, inputs["path"], inputs["content"])
+    if name == "edit_file":
+        return _tool_edit(repo_dir, inputs["path"], inputs["old_string"], inputs["new_string"])
     return f"ERROR: unknown tool {name}"
 
 
@@ -259,12 +296,18 @@ def _run_agent(
             return traj
 
         system = (
-            "You are an expert Python software engineer. "
-            "You will be given a coding task to implement in a real GitHub repository. "
-            "Use the provided tools to explore the codebase, understand the existing code, "
-            "and implement the requested changes. "
-            "Be precise and minimal — only change what is necessary for the task. "
-            "Do NOT attempt to run tests — verification happens separately after you finish."
+            "You are an expert Python software engineer.\n"
+            "You will implement a coding task in a real GitHub repository.\n\n"
+            "STRICT WORKFLOW — follow this order:\n"
+            "1. Read the target file and function (1-2 tool calls max).\n"
+            "2. Implement the change using edit_file (preferred) or write_file.\n"
+            "3. Stop — do not re-read, do not over-explore.\n\n"
+            "RULES:\n"
+            "- You have limited turns. Act decisively.\n"
+            "- Use edit_file for targeted changes — you only need to read the relevant section.\n"
+            "- Do NOT read the entire file before editing. Grep for the target function, read that section, edit it.\n"
+            "- Do NOT run tests. Verification happens separately.\n"
+            "- If you cannot find something after 2 attempts, make your best guess and write the code."
         )
 
         messages = [
@@ -275,7 +318,7 @@ def _run_agent(
                     f"Task:\n{task.main_task}\n\n"
                     f"Target file: {task.main_task_file}\n"
                     f"Target function: {task.main_task_function}\n\n"
-                    "Explore the repo, implement the task, then verify with run_tests."
+                    "Implement the task now. Start by grepping for the target function, read only that section, then edit_file."
                 ),
             }
         ]

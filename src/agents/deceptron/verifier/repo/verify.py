@@ -33,7 +33,11 @@ import re, sys
 _SYS_PAT = re.compile(
     r'(?i)\b(pyqt[456]?|pyside[26]?|wxpython|wx|python-vlc|vlc|kivy|'
     r'pygobject|pygtk|gtk|pygame|pyobjc|pyobjc-core|'
-    r'libX11|libgl1|libgthread|libvlc|sdl2)\b'
+    r'libX11|libgl1|libgthread|libvlc|sdl2|'
+    r'torch|torchvision|torchaudio|jax|jaxlib|tensorflow|tensorflow-gpu|'
+    r'flax|keras|paddle|paddlepaddle|mindspore|oneflow|'
+    r'triton|xformers|flash-attn|bitsandbytes|deepspeed|'
+    r'cupy|cupy-cuda\S*)\b'
 )
 found = []
 for f in ['requirements.txt', 'pyproject.toml', 'setup.py', 'setup.cfg']:
