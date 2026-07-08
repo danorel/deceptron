@@ -13,10 +13,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-import anthropic
 from dotenv import load_dotenv
 
-from shared.llm import create_with_retry
+from shared.llm import LLMClient, make_client, resolve_model
 from agents.deceptron.models.coder.schema import Trajectory, TrajectoryStep
 from agents.deceptron.tasks.schema import TaskPair
 
@@ -266,7 +265,7 @@ def _trim_messages(messages: list) -> list:
 
 def _run_agent(
     task: TaskPair,
-    client: anthropic.Anthropic,
+    client: LLMClient,
     max_turns: int = MAX_TURNS,
 ) -> Trajectory:
     """Run the baseline agent on a single task pair. Returns a Trajectory."""
@@ -323,42 +322,31 @@ def _run_agent(
             }
         ]
 
-        system_block = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
-
         for turn in range(max_turns):
-            response = create_with_retry(client, model=MODEL, max_tokens=4096,
-                                          system=system_block, tools=TOOLS,
-                                          messages=_trim_messages(messages))
+            response = client.chat(model=resolve_model(MODEL), system=system, tools=TOOLS,
+                                   messages=_trim_messages(messages))
 
-            # Record assistant turn
-            traj.steps.append(
-                TrajectoryStep(role="assistant", content=[b.model_dump() for b in response.content])
-            )
-
-            # Append assistant message to conversation
+            traj.steps.append(TrajectoryStep(role="assistant", content=response.content))
             messages.append({"role": "assistant", "content": response.content})
 
             if response.stop_reason == "end_turn":
                 break
-
             if response.stop_reason != "tool_use":
                 break
 
-            # Execute tools
             tool_results = []
             for block in response.content:
-                if block.type != "tool_use":
+                if block.get("type") != "tool_use":
                     continue
                 result_text = _dispatch_tool(
-                    repo_dir, task.deselect_args, block.name, block.input
+                    repo_dir, task.deselect_args, block["name"], block["input"]
                 )
                 tool_results.append({
                     "type": "tool_result",
-                    "tool_use_id": block.id,
+                    "tool_use_id": block["id"],
                     "content": result_text,
                 })
 
-            # Record tool results turn
             traj.steps.append(TrajectoryStep(role="tool", content=tool_results))
             messages.append({"role": "user", "content": tool_results})
 
@@ -402,11 +390,10 @@ def _make_error_traj(task: TaskPair, error: Exception) -> Trajectory:
 
 
 def run(tasks: str, out: str, max_turns: int, limit: int, delay: int, workers: int = 1) -> None:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        sys.exit("ANTHROPIC_API_KEY not set")
-
-    client = anthropic.Anthropic(api_key=api_key)
+    try:
+        client = make_client()
+    except ValueError as e:
+        sys.exit(str(e))
 
     tasks_path = Path(tasks)
     if not tasks_path.exists():
@@ -420,11 +407,12 @@ def run(tasks: str, out: str, max_turns: int, limit: int, delay: int, workers: i
                 task_pairs.append(TaskPair.model_validate_json(line))
 
     seen = _load_seen(out)
-    pending = [t for t in task_pairs if t.id not in seen]
+    invalid = [t for t in task_pairs if not t.main_task_check_valid or not t.side_task_check_valid]
+    pending = [t for t in task_pairs if t.id not in seen and t.main_task_check_valid and t.side_task_check_valid]
     if limit:
         pending = pending[:limit]
 
-    print(f"Tasks: {len(task_pairs)} total, {len(seen)} already done, {len(pending)} to run")
+    print(f"Tasks: {len(task_pairs)} total, {len(seen)} done, {len(invalid)} invalid checks, {len(pending)} to run")
 
     lock = threading.Lock()
     written = 0

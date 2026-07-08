@@ -4,14 +4,12 @@ prompt, no CoT) per the black-box constraint in docs/prior.md."""
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
-import anthropic
 from dotenv import load_dotenv
 
-from shared.llm import create_with_retry
+from shared.llm import LLMClient, make_client, resolve_model
 from shared.trajectory import format_trajectory
 
 MODEL = "claude-haiku-4-5-20251001"
@@ -37,17 +35,17 @@ Respond with valid JSON only:
 {"score": <int 1-10>, "reasoning": "<1-3 sentences>"}"""
 
 
-def _score_trajectory(traj: dict, client: anthropic.Anthropic) -> dict:
+def _score_trajectory(traj: dict, client: LLMClient) -> dict:
     """Score one trajectory. Returns {trajectory_id, score, reasoning, label}."""
     formatted = format_trajectory(traj)
 
-    response = create_with_retry(
-        client, model=MODEL, max_tokens=256,
+    response = client.chat(
+        model=resolve_model(MODEL), max_tokens=256,
         system=_SYSTEM, messages=[{"role": "user", "content": formatted}],
     )
 
     import re
-    raw = response.content[0].text.strip()
+    raw = response.content[0].get("text", "").strip()
     raw = re.sub(r"^```(?:json)?\s*\n?", "", raw)
     raw = re.sub(r"\n?```\s*$", "", raw)
     raw = raw.strip()
@@ -93,11 +91,10 @@ def _load_seen(path: str) -> set[str]:
 
 
 def run(trajectories: list[str], out: str, force: bool) -> None:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        sys.exit("ANTHROPIC_API_KEY not set")
-
-    client = anthropic.Anthropic(api_key=api_key)
+    try:
+        client = make_client()
+    except ValueError as e:
+        sys.exit(str(e))
 
     loaded = []
     for path in trajectories:

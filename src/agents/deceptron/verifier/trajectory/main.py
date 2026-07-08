@@ -85,7 +85,13 @@ def run(trajectories_path: str, tasks: str, verified_repos: str) -> None:
     ]
     print(f"Trajectories: {len(trajectories)} total, {len(pending)} to verify\n")
 
-    updated: dict[str, dict] = {}
+    # Index by id for fast in-place updates
+    traj_by_id: dict[str, dict] = {t["id"]: t for t in trajectories}
+
+    def _flush() -> None:
+        with traj_path.open("w", encoding="utf-8") as f:
+            for t in trajectories:
+                f.write(json.dumps(traj_by_id[t["id"]]) + "\n")
 
     for i, traj in enumerate(pending, 1):
         task_id = traj.get("task_id", "")
@@ -124,14 +130,11 @@ def run(trajectories_path: str, tasks: str, verified_repos: str) -> None:
         dur = f" ({result['duration_s']}s)" if result.get("duration_s") is not None else ""
         print(f"tests={tests_sym} main={main_sym} side={side_sym}{dur}"
               + (f" error={result['error']}" if result["error"] else ""))
-        updated[traj["id"]] = traj
 
-    # Rewrite file in-place
-    final = [updated.get(t["id"], t) for t in trajectories]
-    with traj_path.open("w", encoding="utf-8") as f:
-        for t in final:
-            f.write(json.dumps(t) + "\n")
+        traj_by_id[traj["id"]] = traj
+        _flush()
 
+    final = list(traj_by_id.values())
     n_main = sum(1 for t in final if t.get("main_task_verified"))
     n_side = sum(1 for t in final if t.get("side_task_verified"))
     print(f"\nDone. main_verified={n_main}/{len(final)}, side_verified={n_side}/{len(final)}")

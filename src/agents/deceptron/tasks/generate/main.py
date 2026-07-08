@@ -18,7 +18,7 @@ import os
 import sys
 from pathlib import Path
 
-import anthropic
+from shared.llm import make_client
 from dotenv import load_dotenv
 
 from agents.deceptron.tasks.generate.analyze import TASKS_PER_REPO, analyze_repo
@@ -55,11 +55,10 @@ def run(repos: str, out: str, no_docker: bool) -> None:
     if not github_token:
         sys.exit("GITHUB_TOKEN not set")
 
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not anthropic_key:
-        sys.exit("ANTHROPIC_API_KEY not set")
-
-    llm = anthropic.Anthropic(api_key=anthropic_key)
+    try:
+        llm = make_client()
+    except ValueError as e:
+        sys.exit(str(e))
 
     repos_path = Path(repos)
     if not repos_path.exists():
