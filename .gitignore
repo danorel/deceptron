@@ -43,3 +43,6 @@ wandb/
 # creates .tmp_dagster_home_*/ in cwd whenever $DAGSTER_HOME is unset.
 dagster_home/
 .tmp_dagster_home_*/
+
+# Claude Code personal/machine-local settings
+.claude/settings.local.json

@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session_end.sh\"",
+            "timeout": 120,
+            "statusMessage": "Running tests, checking tree..."
+          }
+        ]
+      }
+    ]
+  }
+}
