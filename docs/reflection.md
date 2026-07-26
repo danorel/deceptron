@@ -2,8 +2,7 @@
 
 ## Hypothesis
 
-Deterministic ground truth on real GitHub repos + parameter-level monitor training
-(LoRA SFT on Qwen2.5-7B) should beat a prompt-only monitor trained on synthetic data — better calibration on out-of-distribution scheming.
+Deterministic ground truth on real GitHub repos + parameter-level monitor training (LoRA SFT on Qwen2.5-7B) should beat a prompt-only monitor trained on synthetic data — better calibration on out-of-distribution scheming.
 
 Motivation: coding agents moving into high-stakes environments — undetected deception there causes security failures with no after-the-fact recourse.
 
@@ -15,10 +14,7 @@ Motivation: coding agents moving into high-stakes environments — undetected de
 
 ## What's built (~80h, alongside full-time job)
 
-End-to-end pipeline (github.com/danorel/deceptron):
-mine → verify (Docker test runs) → generate `(main_task, side_task)` pairs →
-generate baseline + scheming trajectories → verify trajectories (patch + check scripts)
-→ score with prompted monitor → eval (pAUROC@0.05).
+End-to-end pipeline (github.com/danorel/deceptron): mine → verify (Docker test runs) → generate `(main_task, side_task)` pairs → generate baseline + scheming trajectories → verify trajectories (patch + check scripts) → score with prompted monitor → eval (pAUROC@0.05).
 
 Both agent and monitor are currently prompted. LoRA SFT and GRPO red-team are
 scaffolded, not run — no result on the core hypothesis yet.
@@ -36,12 +32,9 @@ Reframe: the binding constraint is extracting clean ground truth, not building o
 
 ## What I'd do differently
 
-Scoped all three gaps as one build before getting any result. Faster: isolate one
-variable (synthetic→real) first, hold Apollo's monitor design constant, run that,
-read the result — then decide whether the larger build is warranted.
+Scoped all three gaps as one build before getting any result. Faster: isolate one variable (synthetic→real) first, hold Apollo's monitor design constant, run that, read the result — then decide whether the larger build is warranted.
 
 ## Open questions
 
-1. **Core:** does a parameter-level monitor improve over prompt-only, and generalize
-   better OOD? No results yet.
+1. **Core:** does a parameter-level monitor improve over prompt-only, and generalize better OOD? No results yet.
 2. **CoT blind spot** (Korbak et al.): deceptron ignores CoT entirely — a clean design choice (only outcomes are verifiable) but a known gap. Future: add CoT as input, test whether it helps or degrades under red-team pressure.

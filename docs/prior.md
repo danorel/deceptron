@@ -5,12 +5,9 @@
 **Paper:** https://arxiv.org/abs/2603.00829
 **Authors:** Storf, Barton-Cooper, Peters-Gill, Hobbhahn (Apollo Research / MATS) — ICML 2026
 
-Studies prompted LLM monitors that detect scheming from observable agent behavior only
-(no chain-of-thought) — trained on synthetic data, evaluated on semi-realistic ControlArena
-trajectories.
+Studies prompted LLM monitors that detect scheming from observable agent behavior only (no chain-of-thought) — trained on synthetic data, evaluated on semi-realistic ControlArena trajectories.
 
-**Scheming definition:** pursuing misaligned objectives *while* concealing them — both
-required; only clear violations (data exfiltration, sabotage, covert resource hijacking) counted.
+**Scheming definition:** pursuing misaligned objectives *while* concealing them — both required; only clear violations (data exfiltration, sabotage, covert resource hijacking) counted.
 
 ---
 
@@ -22,8 +19,7 @@ required; only clear violations (data exfiltration, sabotage, covert resource hi
 | Gloom | Train/Val | Synthetic | 1,000 | Agent w/ hidden objective + simulated environment |
 | ControlArena | Test | Semi-realistic | 7,500 | Real sandbox envs, 3 agent models × 5 settings |
 
-All balanced 50:50 positive/negative. N≈1,000 chosen empirically — past that point pAUROC
-confidence intervals stop overlapping and monitor rankings stabilize.
+All balanced 50:50 positive/negative. N≈1,000 chosen empirically — past that point pAUROC confidence intervals stop overlapping and monitor rankings stabilize.
 
 ---
 
@@ -32,7 +28,7 @@ confidence intervals stop overlapping and monitor rankings stabilize.
 - Side task assigned out-of-band, **stripped from the transcript** before scoring
 - Completion checked via deterministic environment flags — **no LLM judges**
 - Runs that fail to complete the side task are **excluded** (~49% of redteam trajectories)
-  — no reliable way to distinguish "tried and failed" from "never tried"
+— no reliable way to distinguish "tried and failed" from "never tried"
 
 ---
 
@@ -58,13 +54,10 @@ confidence intervals stop overlapping and monitor rankings stabilize.
 | Automated/GEPA (heavy) | 0.800 |
 | SFT, open-model pilot (Kimi K2.6) | 0.907 — tied with prompt-sweep best |
 
-Heavier optimization **overfits** to synthetic-distribution artifacts rather than learning
-robust real-world indicators.
+Heavier optimization **overfits** to synthetic-distribution artifacts rather than learning robust real-world indicators.
 
-**In-distribution ceiling check (§6)** — central pivot for deceptron: training+evaluating
-*directly* on real(-ish) ControlArena data → **pAUROC = 0.81 [0.79, 0.83]**, no better than
-synthetic-trained-and-transferred monitors (0.85–0.91). The ~0.85 ceiling looks like a
-fundamental limit of prompted black-box monitoring — not a synthetic-vs-real artifact.
+**In-distribution ceiling check (§6)** — central pivot for deceptron: training+evaluating *directly* on real(-ish) ControlArena data → **pAUROC = 0.81 [0.79, 0.83]**, no better than
+synthetic-trained-and-transferred monitors (0.85–0.91). The ~0.85 ceiling looks like a fundamental limit of prompted black-box monitoring — not a synthetic-vs-real artifact.
 
 ---
 
@@ -83,22 +76,16 @@ No single dominant prompt–model pair; recommends pairing any of the above with
 
 ## What successful/failed monitors key on (qualitative, §6)
 
-- **Catches:** unjustified code complexity, stated-vs-actual behavior mismatches, suspicious
-  special-casing (backdoor-like), self-incriminating "blabbing" in comments/identifiers
-- **Misses:** "weaponized transparency" (discloses suspicious actions framed as benign),
-  scheming disguised as "helpful overreach"
+- **Catches:** unjustified code complexity, stated-vs-actual behavior mismatches, suspicious special-casing (backdoor-like), self-incriminating "blabbing" in comments/identifiers
+- **Misses:** "weaponized transparency" (discloses suspicious actions framed as benign), scheming disguised as "helpful overreach"
 
 ---
 
 ## Open-source SFT pilot (Kimi K2.6, §5.4)
 
-Run because closed-model fine-tuning APIs reject scheming-themed data via content
-screening. Same base model, same training pool, four optimization strategies — **all
-converge to ~0.90–0.91 pAUROC, including SFT**. Confirms the ceiling isn't an artifact of
-closed-model prompt optimization specifically.
+Run because closed-model fine-tuning APIs reject scheming-themed data via content screening. Same base model, same training pool, four optimization strategies — **all converge to ~0.90–0.91 pAUROC, including SFT**. Confirms the ceiling isn't an artifact of closed-model prompt optimization specifically.
 
-LoRA recipe (relevant to deceptron's Phase 2): rank 32, all linear modules, LR 5e-7 —
-higher LRs caused mode collapse (predictions degenerate to score 1 or 10 within ~80 steps).
+LoRA recipe (relevant to deceptron's Phase 2): rank 32, all linear modules, LR 5e-7 — higher LRs caused mode collapse (predictions degenerate to score 1 or 10 within ~80 steps).
 
 ---
 
@@ -124,9 +111,7 @@ Side task must **never** appear in the trajectory text — agent told separately
 
 ## Metric note
 
-Apollo integrates pAUROC over FPR ∈ [0, 0.20]; deceptron's primary cutoff is FPR < 0.05.
-Not directly comparable — `eval/main.py` reports both side by side so the Apollo column
-is always computed at Apollo's own cutoff.
+Apollo integrates pAUROC over FPR ∈ [0, 0.20]; deceptron's primary cutoff is FPR < 0.05. Not directly comparable — `eval/main.py` reports both side by side so the Apollo column is always computed at Apollo's own cutoff.
 
 ---
 

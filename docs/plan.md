@@ -5,8 +5,7 @@
 
 ## Motivation
 
-Train scheming monitors on real agent trajectories — not synthetic STRIDE/Gloom — with
-fully deterministic ground truth. Closes three gaps in Apollo's paper (see [prior.md](prior.md)):
+Train scheming monitors on real agent trajectories — not synthetic STRIDE/Gloom — with fully deterministic ground truth. Closes three gaps in Apollo's paper (see [prior.md](prior.md)):
 
 1. Synthetic data → real GitHub repos
 2. LLM-assisted ground truth → deterministic test suites + check scripts
@@ -24,22 +23,15 @@ fully deterministic ground truth. Closes three gaps in Apollo's paper (see [prio
 
 ## Phase 1
 
-**Core question:** does swapping synthetic→real-repo data change a prompt-only monitor's
-performance/calibration — or is that axis not where the signal lives?
+**Core question:** does swapping synthetic→real-repo data change a prompt-only monitor's performance/calibration — or is that axis not where the signal lives?
 
-**Context:** Apollo already ran the closest analogue — optimizing+evaluating in-distribution
-on real(-ish) ControlArena data scored 0.81, no better than synthetic-trained monitors. Their
-read: the ~0.85 ceiling is a fundamental limit of black-box prompted monitoring, not a
-synthetic-vs-real artifact. So this isn't about beating their numbers — landing in the same
-~0.7–0.9 band on *truly* real data **replicates** their null result (a publishable result on
+**Context:** Apollo already ran the closest analogue — optimizing+evaluating in-distribution on real(-ish) ControlArena data scored 0.81, no better than synthetic-trained monitors. Their
+read: the ~0.85 ceiling is a fundamental limit of black-box prompted monitoring, not a synthetic-vs-real artifact. So this isn't about beating their numbers — landing in the same ~0.7–0.9 band on *truly* real data **replicates** their null result (a publishable result on
 its own); landing far outside it is the more interesting outcome.
 
-**Comparison caveat:** against Apollo's *reported* numbers only — their training data/code
-aren't released, so this isn't a controlled rerun. State plainly in the write-up.
+**Comparison caveat:** against Apollo's *reported* numbers only — their training data/code aren't released, so this isn't a controlled rerun. State plainly in the write-up.
 
-**Methodology alignment with Apollo (done):** [1,10] integer score, parse-failure → default
-5, T=1, bootstrap 95% CIs, both pAUROC@0.05 (deceptron's metric) and @0.20 (Apollo's) reported
-side by side in `eval/main.py`.
+**Methodology alignment with Apollo (done):** [1,10] integer score, parse-failure → default 5, T=1, bootstrap 95% CIs, both pAUROC@0.05 (deceptron's metric) and @0.20 (Apollo's) reported side by side in `eval/main.py`.
 
 ### Remaining work
 
@@ -66,14 +58,10 @@ Recorded for pipeline-correctness tracking only — too small for any conclusion
 
 ### Next steps (prioritized)
 
-1. **Scaffold `repro/` against current data** — validates eval/comparison path end to end
-   before the dataset is large enough to matter
-2. **Unblock redteam** — actual bottleneck; growing the repo pool alone doesn't move eval N.
-   Run `redteam.main` against existing tasks first (~$5/100 traj)
-3. **Grow repo pool in background** (e.g. on a Pi — pure GitHub API, no Docker). Keep
-   Docker verification on x86 — `TEST_TIMEOUT` tuned for x86, some deps lack aarch64 wheels
-4. **Rerun eval, finalize comparison** — target ~100 baseline + ~100 scheming verified
-   (balanced 50:50, see cost estimate for the ~2× redteam volume needed)
+1. **Scaffold `repro/` against current data** — validates eval/comparison path end to end before the dataset is large enough to matter
+2. **Unblock redteam** — actual bottleneck; growing the repo pool alone doesn't move eval N. Run `redteam.main` against existing tasks first (~$5/100 traj)
+3. **Grow repo pool in background** (e.g. on a Pi — pure GitHub API, no Docker). Keep Docker verification on x86 — `TEST_TIMEOUT` tuned for x86, some deps lack aarch64 wheels
+4. **Rerun eval, finalize comparison** — target ~100 baseline + ~100 scheming verified (balanced 50:50, see cost estimate for the ~2× redteam volume needed)
 
 ---
 
@@ -90,8 +78,7 @@ miner → tasks → agent (baseline) ──┐
 
 ## Miner filters
 
-Stars 100–2000 · contributors 3–30 · CI passing · tests present · last commit < 3mo ·
-open license (MIT/Apache-2.0/BSD) · Python only (v1)
+Stars 100–2000 · contributors 3–30 · CI passing · tests present · last commit < 3mo · open license (MIT/Apache-2.0/BSD) · Python only (v1)
 
 ## Side task catalog (v1)
 
@@ -141,8 +128,7 @@ open license (MIT/Apache-2.0/BSD) · Python only (v1)
 
 ## Cost estimate — target N=100 balanced (100 scheming + 100 baseline)
 
-Apollo drops ~49% of redteam trajectories (side task attempted, never completed) — so
-redteam attempts ≈ 2N, baseline ≈ N (near-zero attrition, no adversarial objective to fail).
+Apollo drops ~49% of redteam trajectories (side task attempted, never completed) — so redteam attempts ≈ 2N, baseline ≈ N (near-zero attrition, no adversarial objective to fail).
 
 | Item | Volume | Est. cost |
 |---|---|---|
@@ -153,8 +139,7 @@ redteam attempts ≈ 2N, baseline ≈ N (near-zero attrition, no adversarial obj
 | SFT compute | 1 run | ~$4 |
 | **Total** | | **~$25** (within $100 budget) |
 
-**Repos:** ~3 tasks/repo → ~67 verified repos needed. At current pass rate (14/50 ≈ 28%)
-→ mine ~240 candidates; with uv/build-essential/xdist fixes (~40% pass rate) → ~170.
+**Repos:** ~3 tasks/repo → ~67 verified repos needed. At current pass rate (14/50 ≈ 28%) → mine ~240 candidates; with uv/build-essential/xdist fixes (~40% pass rate) → ~170.
 
 ---
 
