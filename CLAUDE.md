@@ -60,13 +60,13 @@ deceptron/
 ## Setup
 
 ```bash
-CONDA_OVERRIDE_OSX=15.0 micromamba create -f environment.yml
-micromamba activate deceptron
-pip install -r requirements.txt
-cp .env.example .env  # add GITHUB_TOKEN, ANTHROPIC_API_KEY
+uv sync                          # creates .venv, installs all deps + editable package
+cp .env.example .env             # add GITHUB_TOKEN, ANTHROPIC_API_KEY
+uv run python -m agents.deceptron.main --list   # run anything via `uv run`
 
-# GPU machine: reinstall torch with CUDA after pip install
-pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cu124
+# Phase 2 SFT only, on the GPU box:
+uv sync --extra sft
+uv pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cu124  # CUDA wheel
 ```
 
 ## Common commands
@@ -165,13 +165,127 @@ within a single file should *get* the underscore even if its name otherwise
 matches one of the prefixes above (e.g. `_fetch_repo_files`, `_load_cached` —
 both `fetch_`/`load_`-shaped, both private to `tasks.generate.analyze`).
 
+## Testing (TDD)
+
+- **Tests first, always** — write the test before the implementation. The test
+  encodes the behavior we *want*; the code exists to make it pass. Never write
+  code first and backfill a test that merely mirrors it.
+- **Test behavior, not existence** — assert on real logic and critical paths
+  (does the metric compute correctly? does the verifier reject a broken patch?).
+  Do not write tests that only prove a config parses or a file loads.
+- **Readable by a non-engineer** — anyone, even someone who has never seen the
+  code, should read a test and understand *what goes in* and *what we expect
+  out*. Name and comment for that reader.
+- **Block structure** — separate logical parts with comment banners:
+  - `# ---- Constants ----`, `# ---- Fixtures ----`, then one banner per test
+    block describing what that block tests.
+  - Each test carries a short comment: an example of the input and the expected
+    output.
+- **Fixture naming** — fixture *functions* always use the `_fixture_` prefix
+  (e.g. `_fixture_trajectory`, `_fixture_broken_patch`).
+
+Example shape:
+
+```python
+# ---- Constants ----
+SCHEMING_LABEL = "scheming"
+
+# ---- Fixtures ----
+def _fixture_trajectory(label: str) -> dict:
+    """Minimal trajectory with a given label.
+    >>> _fixture_trajectory("scheming")["label"]
+    'scheming'
+    """
+    return {"id": "t1", "label": label, "steps": []}
+
+# ---- pAUROC: separable scores give perfect low-FPR detection ----
+def test_pauroc_perfect_separation():
+    # in:  clean scores [0.1, 0.2], scheming scores [0.9, 0.8]
+    # out: pAUROC at FPR<0.05 == 1.0 (all scheming rank above all clean)
+    scores = [0.1, 0.2, 0.9, 0.8]
+    labels = [0, 0, 1, 1]
+    assert pauroc(scores, labels, max_fpr=0.05) == 1.0
+```
+
+## Comments
+
+- **Only where they earn their place** — no comments for the sake of comments.
+  Comment the non-obvious "why" (hidden constraint, workaround, trade-off);
+  never restate what the code plainly does.
+- **Docstrings** — every function gets a short, complete docstring with a usage
+  example and expected output (doctest-style `>>>` where it fits). Short and
+  lucid, never a multi-paragraph wall.
+
+## Code style
+
+- **Functional** — each function is isolated, does one thing, and stays compact
+  (≤40 lines). If it grows past that, split it.
+- **Modular** — a module groups functions that share one semantic purpose;
+  unrelated concerns live in different modules.
+- **Elegant** — aim for uniform variable-name length, ≤5–6 parameters per
+  function (pass a dataclass/dict when you need more), no crowding. Code should
+  read cleanly.
+
 ## Design principles
 
 - **No LLM judges for ground truth** — all labels are deterministic (test suite pass/fail + adversarial check scripts)
 - **Real repos only** — no synthetic environments; distribution shift from real codebases is a feature, not a bug
 - **Reproducibility first** — every experiment logs config, seed, and model version
 - **Cheap iterations** — default configs target <$10/experiment; scale-up configs are separate
-- **Minimal comments** — only for non-obvious "why" (hidden constraints, workarounds, trade-offs); no restating what the code does, no multi-paragraph blocks
+
+Code, comment, and test conventions live above: see **Testing (TDD)**,
+**Comments**, and **Code style**.
+
+## Experiment log
+
+Every experiment that meaningfully informs the project — a backend/model swap, a
+throughput or yield finding, a pipeline bug that changes how we build data — gets
+logged to `docs/log/{YYYY-MM-DD_HHMM}_{experiment}.md`. Keep it terse (skim in
+30s), three sections only:
+
+- **Hypothesis / Experiment** — what we ran and why (setup, config, the question).
+- **Result** — what came out (numbers, observations, verified/failed).
+- **Target metric** — the ONE number this experiment is measured by, with its
+  value. Each experiment has its own metric: a generator-model test measures
+  throughput (tok/s), a monitor test measures pAUROC@0.05, a yield test measures
+  verified-trajectory rate. Name the metric that fits *this* experiment and
+  report the measurement — don't default to the project's headline metric when it
+  isn't what the experiment moves.
+- **Conclusions / next** — what it means + the next concrete step.
+
+**One topic per log — never mix.** A file tracks a single experiment across its
+iterations. When you act on an experiment's decision (or an iteration produces a
+result), append a tight `## Result — iter N` section to *that* file — do not spin
+up a new file that blends the follow-up with unrelated concerns. If the new work
+is genuinely a different question, it gets its own clean, single-topic file.
+
+Log the finding when it's fresh, not at the end. Keep every section terse and
+well-structured — no dumping grounds. Skip trivial runs — log only what a future
+session would need to avoid repeating the work.
+
+## Session recap
+
+At the **end of every working session**, write a recap to
+`docs/session/{YYYY-MM-DD_HHMM}_{summary}.md` (`summary` = short kebab-case topic,
+e.g. `2026-07-26_1530_monitor-prompt-tuning.md`). Purpose: next session, open the
+latest recap and know instantly what was done, where we stopped, and what's left.
+
+Four sections, terse (skim in 30s):
+
+- **Done** — what we actually finished and verified this session.
+- **In progress** — what's started but incomplete, and its current state.
+- **Next** — concrete next steps, most important first.
+- **Notes / blockers** — anything a future session must know: decisions made,
+  dead ends, open questions, things that broke.
+
+**Commit at end of session** — after writing the recap, commit the session's
+work as a **series of logically-grouped commits**: each commit bundles
+semantically related changes under one clear message; never sweep everything
+into a single catch-all commit. Put the recap in its own commit (or fold it into
+the most related one). Commit only; do not push unless asked. The SessionEnd
+hook does not commit — it runs the tests and warns if the tree is left dirty.
+
+Distinct from the **Experiment log**: that captures a single experiment's finding; this captures the *session's* continuity across whatever we touched. Write the recap when wrapping up — don't skip it, even for short sessions.
 
 ## Out of scope (v1)
 
