@@ -26,28 +26,26 @@ Details and open questions: [docs/plan.md](docs/plan.md).
 
 ## Requirements
 
-- [micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - Docker (for repo verification and trajectory checking)
-- Python 3.11
+- Python 3.11 (uv fetches it automatically)
 
 ## Setup
 
 ```bash
-# 1. Create environment
-CONDA_OVERRIDE_OSX=15.0 micromamba create -f environment.yml   # macOS
-micromamba create -f environment.yml                            # Linux
+# 1. Install all deps + editable package into .venv
+uv sync
 
-# 2. Activate and install pip packages
-micromamba activate deceptron
-pip install -r requirements.txt
-pip install -e .   # editable install (src/ layout, five packages: common/deceptron/orchestration/repro/compare)
-
-# 3. GPU machine only — reinstall torch with CUDA
-pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cu124
-
-# 4. Configure secrets
+# 2. Configure secrets
 cp .env.example .env
 # Fill in: GITHUB_TOKEN, ANTHROPIC_API_KEY
+
+# 3. Run anything via uv run
+uv run python -m agents.deceptron.main --list
+
+# GPU box only (Phase 2 SFT):
+uv sync --extra sft
+uv pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cu124
 ```
 
 ## Environment variables

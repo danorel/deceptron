@@ -1,8 +1,0 @@
-name: deceptron
-channels:
-  - conda-forge
-dependencies:
-  - python=3.11.9
-  - pip=24.2
-  - numpy=1.26.4
-  - tqdm=4.66.5
