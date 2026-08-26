@@ -60,7 +60,7 @@ def mine_repos_op(context: OpExecutionContext, config: ConfigMinerRepo):
 
 
 @op(retry_policy=_RETRY_POLICY)
-def verify_repo_op(context: OpExecutionContext, repo: Repo, config: ConfigVerifyRepo) -> None:
+def verify_repo_op(context: OpExecutionContext, config: ConfigVerifyRepo, repo: Repo) -> None:
     if repo.id in load_verified_ids(config.out):
         context.log.info(f"{repo.full_name} already verified -> skipping")
         return

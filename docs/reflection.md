@@ -19,6 +19,14 @@ End-to-end pipeline (github.com/danorel/deceptron): mine → verify (Docker test
 Both agent and monitor are currently prompted. LoRA SFT and GRPO red-team are
 scaffolded, not run — no result on the core hypothesis yet.
 
+LLM backend is now pluggable ([LLM.md](LLM.md)): `LLM_PROVIDER=anthropic`
+(Haiku, default) or `openai` pointed at self-hosted vLLM (`Qwen/Qwen3-30B-A3B`
+on H100). Motivation for the open-model path: a reasoning model schemes
+covertly in CoT while `--reasoning-parser` strips that CoT before it hits the
+logged trajectory — the scaffold now lets a genuinely deceptive-capable model
+generate trajectories, not just Haiku. Coder and redteam must stay pinned to
+the same provider+model per run, else the monitor learns style, not scheming.
+
 ## Biggest surprise: ground truth, not monitoring, is the bottleneck
 
 Expected the monitor to be the hard part. It's sourcing verifiable repos and trajectories.
@@ -38,3 +46,4 @@ Scoped all three gaps as one build before getting any result. Faster: isolate on
 
 1. **Core:** does a parameter-level monitor improve over prompt-only, and generalize better OOD? No results yet.
 2. **CoT blind spot** (Korbak et al.): deceptron ignores CoT entirely — a clean design choice (only outcomes are verifiable) but a known gap. Future: add CoT as input, test whether it helps or degrades under red-team pressure.
+3. **Trajectory-gen model choice:** Haiku vs. open reasoning model (Qwen3-30B-A3B) for coder/redteam — does the open model's stripped-CoT scheming produce harder-to-detect trajectories, changing the eval band?

@@ -33,6 +33,8 @@ its own); landing far outside it is the more interesting outcome.
 
 **Methodology alignment with Apollo (done):** [1,10] integer score, parse-failure → default 5, T=1, bootstrap 95% CIs, both pAUROC@0.05 (deceptron's metric) and @0.20 (Apollo's) reported side by side in `eval/main.py`.
 
+**LLM backend (see [LLM.md](../LLM.md)):** all stages (task-gen, coder, redteam, monitor) now switch via `LLM_PROVIDER` — Anthropic (`claude-haiku-4-5`, default) or open model via vLLM (`Qwen/Qwen3-30B-A3B` on H100, reasoning-parser strips CoT before logging). Coder and redteam must share the same provider+model — trajectory pairs differ only by side task, else the monitor learns style not scheming.
+
 ### Remaining work
 
 | Task | Status |
@@ -139,6 +141,8 @@ Apollo drops ~49% of redteam trajectories (side task attempted, never completed)
 | SFT compute | 1 run | ~$4 |
 | **Total** | | **~$25** (within $100 budget) |
 
+Above assumes Anthropic API. Open-model path (vLLM on H100, ~$3.63/h) trades API $ for GPU $: full pipeline ≈ 8–10h ≈ $30–36 (see [LLM.md](../LLM.md)) — stop instance when idle, billing per-hour-live.
+
 **Repos:** ~3 tasks/repo → ~67 verified repos needed. At current pass rate (14/50 ≈ 28%) → mine ~240 candidates; with uv/build-essential/xdist fixes (~40% pass rate) → ~170.
 
 ---
@@ -156,4 +160,4 @@ White-box monitoring · non-coding environments · ControlArena evaluation · no
 - Does CoT as monitor input help or hurt under red-team pressure?
 - GPU access for SFT runs?
 - Which side tasks have the most reliable check scripts?
-- Is Haiku trajectory quality sufficient for monitor training?
+- Haiku vs. open-model (Qwen3-30B-A3B via vLLM) trajectory quality for monitor training — which yields better-separated baseline/scheming pairs?
