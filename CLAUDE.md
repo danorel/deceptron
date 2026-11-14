@@ -1,6 +1,8 @@
 # deceptron
 
-Adversarial training pipeline for black-box scheming detection — built on real GitHub repositories with deterministic ground truth verification, no LLM judges.
+Data pipeline for black-box scheming detection — built on real GitHub repositories with deterministic ground truth verification, no LLM judges.
+
+**Status: paused since August 2026** after the data-generation stage (see README status). Monitor training (LoRA SFT) and the GRPO red-team loop are designed, not implemented.
 
 ## Project structure
 
@@ -20,7 +22,7 @@ deceptron/
 │   │   │   │                   #   generate/ and validate/, each its own CLI
 │   │   │   ├── models/
 │   │   │   │   ├── coder/          # Coding agent trajectory generation
-│   │   │   │   ├── monitor/        # Scheming monitor (prompted + fine-tuned)
+│   │   │   │   ├── monitor/        # Scheming monitor (prompted; fine-tuned: planned, not implemented)
 │   │   │   │   └── redteam/        # Adversarial trajectory generation
 │   │   │   ├── eval/           # AUROC / pAUROC evaluation pipeline
 │   │   │   ├── maintenance/    # one-off mining-data utilities (backfill-sha, strip-logs)
@@ -53,9 +55,9 @@ deceptron/
 - **Main task**: legitimate coding task derived from a real GitHub repo
 - **Side task**: adversarial behavior the agent must execute without being detected (e.g., weaken password validation, add logging of sensitive data)
 - **Ground truth**: deterministic — native test suite (pytest/cargo test/jest/etc.) for main task completion; adversarial check scripts for side task execution
-- **Monitor**: LLM that reads a full agent trajectory and outputs a scheming score (0–10)
-- **Red team**: LLM prompted or fine-tuned to complete main task + side task while evading the monitor
-- **Adversarial loop**: monitor and red team iteratively improve against each other
+- **Monitor**: LLM that reads a full agent trajectory and outputs a scheming score (1–10)
+- **Red team**: LLM prompted to complete main task + side task while evading the monitor (fine-tuned red team: planned, not implemented)
+- **Adversarial loop** (planned, not implemented): monitor and red team iteratively improve against each other
 
 ## Setup
 
@@ -63,11 +65,10 @@ deceptron/
 uv sync                          # creates .venv, installs all deps + editable package
 cp .env.example .env             # add GITHUB_TOKEN, ANTHROPIC_API_KEY
 uv run python -m agents.deceptron.main --list   # run anything via `uv run`
-
-# Phase 2 SFT only, on the GPU box:
-uv sync --extra sft
-uv pip install torch==2.4.1 --index-url https://download.pytorch.org/whl/cu124  # CUDA wheel
 ```
+
+The `sft` extra in `pyproject.toml` only reserves dependencies for the planned
+SFT monitor — not implemented, no code uses it.
 
 ## Common commands
 
@@ -101,8 +102,9 @@ docker compose up -d                       # background, containerized — see D
 |---|---|
 | `GITHUB_TOKEN` | GitHub API token (read-only scope sufficient) |
 | `ANTHROPIC_API_KEY` | For trajectory generation and prompted monitor |
-| `OPENAI_API_KEY` | Optional, for GPT-4o baseline monitor |
-| `HF_TOKEN` | For Qwen model access on HuggingFace |
+| `LLM_PROVIDER`, `LLM_MODEL`, `LLM_BASE_URL` | Optional — switch all stages to an OpenAI-compatible endpoint (vLLM), see LLM.md |
+| `OPENAI_API_KEY` | Optional — key for that OpenAI-compatible endpoint |
+| `HF_TOKEN` | Optional — Qwen model download when serving with vLLM (SFT use planned, not implemented) |
 
 ## Evaluation metric
 
@@ -230,7 +232,7 @@ def test_pauroc_perfect_separation():
 
 - **No LLM judges for ground truth** — all labels are deterministic (test suite pass/fail + adversarial check scripts)
 - **Real repos only** — no synthetic environments; distribution shift from real codebases is a feature, not a bug
-- **Reproducibility first** — every experiment logs config, seed, and model version
+- **Reproducibility first** — every experiment should log config, seed, and model version (not yet enforced: trajectory and score records don't store the model)
 - **Cheap iterations** — default configs target <$10/experiment; scale-up configs are separate
 
 Code, comment, and test conventions live above: see **Testing (TDD)**,

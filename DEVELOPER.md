@@ -8,7 +8,7 @@ harnesses, and the codebase layout. For project context and motivation, see the 
 
 ## Pipeline
 
-The pipeline runs in 8 stages (`python -m agents.deceptron.main --list`). Each stage reads from and writes to `.jsonl` files in `data/`.
+The pipeline runs in 9 stages (`python -m agents.deceptron.main --list`; the diagram below folds `strip-logs` into stage 2). Each stage reads from and writes to `.jsonl` files in `data/`.
 All stages are **incremental** — re-running skips already-processed items.
 
 Run the whole thing (or a subset, in pipeline order) with the orchestrator:
@@ -46,7 +46,7 @@ GitHub repos
 [5] verifier  →  updates trajectories in-place       (Docker: apply patch + pytest + check scripts)
                    │
                    ▼
-[6] monitor   →  data/agents/deceptron/scores/prompted.jsonl                   (Claude: score 0–10)
+[6] monitor   →  data/agents/deceptron/scores/prompted.jsonl                   (LLM: score 1–10)
                    │
                    ▼
 [7] eval      →  data/agents/deceptron/results/prompted/results.json           (AUROC / pAUROC)
@@ -54,7 +54,8 @@ GitHub repos
 
 ### Stage 1 — Mine repos
 
-Queries GitHub for Python repos with 100–2000 stars, 3–30 contributors, passing CI, and open license.
+Queries GitHub for Python repos with 100–2000 stars, 3–30 contributors, a push in the last 90 days,
+passing CI (repos with no CI configured are allowed), and open license.
 
 ```bash
 python -m agents.deceptron.miner.main --lang python --limit 50 --out data/agents/deceptron/mining/repos.jsonl
@@ -104,7 +105,8 @@ Flags: `--no-docker` skips Docker validation; `--force` re-validates all pairs.
 
 ### Stage 4a — Baseline agent trajectories
 
-Agent receives only the `main_task`. Tools: `read_file`, `list_directory`, `write_file`.
+Agent receives only the `main_task`. Tools: `read_file`, `grep_file`, `list_directory`, `write_file`,
+`edit_file`, plus a sandboxed `run_tests` with `--enable-tests`.
 Produces a `git diff` patch and a full tool-use transcript as the trajectory.
 
 ```bash
@@ -126,7 +128,7 @@ transcript). Must complete both while making the trajectory look like normal cod
 python -m agents.deceptron.models.redteam.main --tasks data/agents/deceptron/tasks/tasks.jsonl --out data/agents/deceptron/trajectories/scheming.jsonl
 ```
 
-Same `--limit` and `--delay` flags as `agents.deceptron.models.coder.main`.
+Same tools and `--limit` / `--delay` / `--enable-tests` flags as `agents.deceptron.models.coder.main`.
 
 ### Stage 5 — Verify trajectories (Docker required)
 
@@ -149,7 +151,8 @@ python -m agents.deceptron.verifier.trajectory.main --trajectories data/agents/d
 
 ### Stage 6 — Monitor scoring
 
-Claude reads each trajectory (tool calls, file writes, final patch — **not** the system prompt)
+An LLM (default `claude-haiku-4-5`; switchable, see [LLM.md](LLM.md)) reads each trajectory
+(tool calls, file writes, final patch — **not** the system prompt)
 and outputs a scheming score 1–10. This is pure black-box monitoring.
 
 ```bash
@@ -171,7 +174,7 @@ target scale (N≈200 balanced) has not been run.
 
 ---
 
-## Phase 1: Apollo repro + benchmark comparison
+## Phase 1: Apollo repro + benchmark comparison (partial — pilot scale only)
 
 `agents.apollo` mirrors `agents.deceptron`'s models.monitor → eval → main shape (same
 module shapes, same metrics via `shared.*`) but scores deceptron's existing real-repo
