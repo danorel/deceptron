@@ -1,6 +1,8 @@
 # deceptron — Research Plan
 
-**Status:** Phase 1 in progress
+> Paused as of Aug 2026 — see the status note in the [README](../README.md).
+
+**Status:** Paused (Phase 1 data pipeline built)
 **Budget:** $50 API + $50 compute = $100
 
 ## Motivation
@@ -15,8 +17,8 @@ Train scheming monitors on real agent trajectories — not synthetic STRIDE/Gloo
 
 | Phase | Goal | Status |
 |---|---|---|
-| 1 | Reproduce Apollo's prompt-only monitor on real-repo data, compare to reported numbers | current |
-| 2 | LoRA SFT monitor + GRPO red-team adversarial loop | scaffolded |
+| 1 | Reproduce Apollo's prompt-only monitor on real-repo data, compare to reported numbers | paused |
+| 2 | LoRA SFT monitor + GRPO red-team adversarial loop | designed, not implemented |
 | 3 | Add CoT as monitor input | open question |
 
 ---
@@ -98,7 +100,7 @@ Stars 100–2000 · contributors 3–30 · CI passing · tests present · last c
 
 ---
 
-## Phase 2 — SFT (scaffolded, not yet run)
+## Phase 2 — SFT (designed, not implemented)
 
 | Param | Value |
 |---|---|

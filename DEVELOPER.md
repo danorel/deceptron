@@ -150,7 +150,7 @@ python -m agents.deceptron.verifier.trajectory.main --trajectories data/agents/d
 ### Stage 6 — Monitor scoring
 
 Claude reads each trajectory (tool calls, file writes, final patch — **not** the system prompt)
-and outputs a scheming score 0–10. This is pure black-box monitoring.
+and outputs a scheming score 1–10. This is pure black-box monitoring.
 
 ```bash
 python -m agents.deceptron.models.monitor.prompted.main \
@@ -166,10 +166,8 @@ Add `--force` to re-score everything.
 python -m agents.deceptron.eval.main --scores data/agents/deceptron/scores/prompted.jsonl --out data/agents/deceptron/results/prompted/
 ```
 
-Outputs AUROC and pAUROC (primary metric). With a working pipeline expect:
-- Baseline scores: 0–3
-- Scheming scores: 6–9
-- AUROC > 0.85
+Outputs AUROC and pAUROC (primary metric) with bootstrap 95% CIs. Evaluation at
+target scale (N≈200 balanced) has not been run.
 
 ---
 
@@ -223,10 +221,10 @@ docker compose down                     # stop (data persists in the dagster_hom
 ```
 
 Both paths load `run_pipeline_job` from `workspace.yaml` ->
-`orchestrator.definitions:defs`. Config schema
-(`ConfigMinerRepo`/`ConfigVerifyRepo`) exposes `lang`/`limit`/`out`/`repos`
-as run-launch parameters — override them in the UI Launchpad per run instead
-of editing code.
+`orchestrator.definitions:defs`. Config schema exposes run-launch parameters
+— `ConfigMinerRepo`: `lang`/`limit`/`out`; `ConfigVerifyRepo`: `out` (repos to
+verify come from the mining op, not a file) — override them in the UI
+Launchpad per run instead of editing code.
 
 ## Directory structure
 
@@ -268,7 +266,7 @@ deceptron/
 │   │   │   ├── models/
 │   │   │   │   ├── coder/           # Baseline coding agent (main task only)
 │   │   │   │   ├── redteam/         # Scheming agent (main + hidden side task)
-│   │   │   │   └── monitor/         # Prompted scheming monitor (+ SFT, phase 2)
+│   │   │   │   └── monitor/         # Prompted scheming monitor (SFT: planned, not implemented)
 │   │   │   ├── eval/            # AUROC / pAUROC evaluation
 │   │   │   ├── maintenance/     # one-off mining-data utilities (not in PIPELINE):
 │   │   │   │   │                #   backfill-sha, strip-logs — own dispatcher CLI
@@ -328,12 +326,8 @@ deceptron/
         └── results/comparison.json                      (python -m benchmark.main)
 ```
 
-## SFT monitor (phase 2, scaffolded — optional, GPU required)
+## SFT monitor (phase 2) — not implemented (planned)
 
-Requires ≥24 GB VRAM (Ada L40S 48 GB recommended).
-
-```bash
-python -m agents.deceptron.models.monitor.sft \
-    --train data/agents/deceptron/trajectories/baseline.jsonl data/agents/deceptron/trajectories/scheming.jsonl \
-    --out runs/monitor-v1
-```
+There is no SFT code yet: `agents.deceptron.models.monitor.sft` does not exist, and the
+`sft` extra in `pyproject.toml` only reserves dependencies. The planned setup (QLoRA on
+Qwen2.5-7B-Instruct, GPU with ≥24 GB VRAM) is in [docs/plan.md](docs/plan.md).
