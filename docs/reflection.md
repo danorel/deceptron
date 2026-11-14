@@ -1,5 +1,7 @@
 # Reflection
 
+> Project paused since Aug 2026 after the data-generation stage — see the status note in the [README](../README.md).
+
 ## Hypothesis
 
 Deterministic ground truth on real GitHub repos + parameter-level monitor training (LoRA SFT on Qwen2.5-7B) should beat a prompt-only monitor trained on synthetic data — better calibration on out-of-distribution scheming.
@@ -17,9 +19,9 @@ Motivation: coding agents moving into high-stakes environments — undetected de
 End-to-end pipeline (github.com/danorel/deceptron): mine → verify (Docker test runs) → generate `(main_task, side_task)` pairs → generate baseline + scheming trajectories → verify trajectories (patch + check scripts) → score with prompted monitor → eval (pAUROC@0.05).
 
 Both agent and monitor are currently prompted. LoRA SFT and GRPO red-team are
-scaffolded, not run — no result on the core hypothesis yet.
+designed, not implemented — no result on the core hypothesis yet.
 
-LLM backend is now pluggable ([LLM.md](LLM.md)): `LLM_PROVIDER=anthropic`
+LLM backend is now pluggable ([LLM.md](../LLM.md)): `LLM_PROVIDER=anthropic`
 (Haiku, default) or `openai` pointed at self-hosted vLLM (`Qwen/Qwen3-30B-A3B`
 on H100). Motivation for the open-model path: a reasoning model schemes
 covertly in CoT while `--reasoning-parser` strips that CoT before it hits the

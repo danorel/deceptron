@@ -106,8 +106,8 @@ LLM_MODEL=Qwen/Qwen3-30B-A3B python -m agents.deceptron.models.coder.main ...
 
 ## Cost (H100 1× @ ~$3.63/h)
 
-Full pipeline (~136 pairs: task-gen + baseline + scheming + scoring) ≈ 8–10 h ≈
-$30–36. Tunnel down / stop the instance when idle — billing is per-hour-live.
+Full pipeline (~136 pairs: task-gen + baseline + scheming + scoring) estimated at
+≈ 8–10 h ≈ $30–36 (estimate — a bulk run on this backend was not done). Tunnel down / stop the instance when idle — billing is per-hour-live.
 
 ## Switch back to Anthropic
 

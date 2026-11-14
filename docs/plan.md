@@ -1,6 +1,8 @@
 # deceptron — Research Plan
 
-**Status:** Phase 1 in progress
+> Paused as of Aug 2026 — see the status note in the [README](../README.md).
+
+**Status:** Paused (Phase 1 data pipeline built)
 **Budget:** $50 API + $50 compute = $100
 
 ## Motivation
@@ -15,8 +17,8 @@ Train scheming monitors on real agent trajectories — not synthetic STRIDE/Gloo
 
 | Phase | Goal | Status |
 |---|---|---|
-| 1 | Reproduce Apollo's prompt-only monitor on real-repo data, compare to reported numbers | current |
-| 2 | LoRA SFT monitor + GRPO red-team adversarial loop | scaffolded |
+| 1 | Reproduce Apollo's prompt-only monitor on real-repo data, compare to reported numbers | paused |
+| 2 | LoRA SFT monitor + GRPO red-team adversarial loop | designed, not implemented |
 | 3 | Add CoT as monitor input | open question |
 
 ---
@@ -35,16 +37,16 @@ its own); landing far outside it is the more interesting outcome.
 
 **LLM backend (see [LLM.md](../LLM.md)):** all stages (task-gen, coder, redteam, monitor) now switch via `LLM_PROVIDER` — Anthropic (`claude-haiku-4-5`, default) or open model via vLLM (`Qwen/Qwen3-30B-A3B` on H100, reasoning-parser strips CoT before logging). Coder and redteam must share the same provider+model — trajectory pairs differ only by side task, else the monitor learns style not scheming.
 
-### Remaining work
+### Remaining work (state at pause, Aug 2026)
 
 | Task | Status |
 |---|---|
-| Repo mining + verification | 14 verified — target ~67 for balanced N=100 (see cost estimate) |
-| Task generation | 10 — need more per repo |
-| Baseline trajectories | 8 generated, 7 verified |
-| Scheming trajectories | **bottleneck** — 2 generated, 1 verified |
-| Trajectory verification | partial |
-| Monitor scoring + eval | pilot only (n=12) |
+| Repo mining + verification | 77 verified of 156 candidates (target ~67 for balanced N=100, see cost estimate) |
+| Task generation | 136 pairs across 59 repos — target ~200 |
+| Baseline trajectories | 136 generated, 79 pass the main-task check |
+| Scheming trajectories | **bottleneck** — 136 generated, 28 pass the side-task check, 15 pass both main + side |
+| Trajectory verification | run on both sets; 7 baseline trajectories also pass their side-task check → some check scripts are not discriminative |
+| Monitor scoring + eval | small-scale run only, labels not filtered by verification — not at target scale |
 
 ### Pilot numbers (n=10–12 — CIs degenerate, not meaningful)
 
@@ -60,10 +62,10 @@ Recorded for pipeline-correctness tracking only — too small for any conclusion
 
 ### Next steps (prioritized)
 
-1. **Scaffold `repro/` against current data** — validates eval/comparison path end to end before the dataset is large enough to matter
-2. **Unblock redteam** — actual bottleneck; growing the repo pool alone doesn't move eval N. Run `redteam.main` against existing tasks first (~$5/100 traj)
+1. ~~**Scaffold `repro/` against current data**~~ — done: `agents.apollo` + `benchmark`, run on a pilot set only
+2. **Unblock redteam** — actual bottleneck; growing the repo pool alone doesn't move eval N. Redteam has run on all 136 tasks; the open problem is verified yield (15 of 136 pass both checks)
 3. **Grow repo pool in background** (e.g. on a Pi — pure GitHub API, no Docker). Keep Docker verification on x86 — `TEST_TIMEOUT` tuned for x86, some deps lack aarch64 wheels
-4. **Rerun eval, finalize comparison** — target ~100 baseline + ~100 scheming verified (balanced 50:50, see cost estimate for the ~2× redteam volume needed)
+4. **Rerun eval, finalize comparison** — target ~100 baseline + ~100 scheming verified (balanced 50:50, see cost estimate for the ~2× redteam volume needed); filter both classes by verification before scoring
 
 ---
 
@@ -98,7 +100,7 @@ Stars 100–2000 · contributors 3–30 · CI passing · tests present · last c
 
 ---
 
-## Phase 2 — SFT (scaffolded, not yet run)
+## Phase 2 — SFT (designed, not implemented)
 
 | Param | Value |
 |---|---|
@@ -141,9 +143,9 @@ Apollo drops ~49% of redteam trajectories (side task attempted, never completed)
 | SFT compute | 1 run | ~$4 |
 | **Total** | | **~$25** (within $100 budget) |
 
-Above assumes Anthropic API. Open-model path (vLLM on H100, ~$3.63/h) trades API $ for GPU $: full pipeline ≈ 8–10h ≈ $30–36 (see [LLM.md](../LLM.md)) — stop instance when idle, billing per-hour-live.
+Above assumes Anthropic API. Open-model path (vLLM on H100, ~$3.63/h) trades API $ for GPU $: full pipeline est. ≈ 8–10h ≈ $30–36 (estimate, not measured) (see [LLM.md](../LLM.md)) — stop instance when idle, billing per-hour-live.
 
-**Repos:** ~3 tasks/repo → ~67 verified repos needed. At current pass rate (14/50 ≈ 28%) → mine ~240 candidates; with uv/build-essential/xdist fixes (~40% pass rate) → ~170.
+**Repos:** ~3 tasks/repo → ~67 verified repos needed. At the early pass rate (14/50 ≈ 28%) → mine ~240 candidates; with uv/build-essential/xdist fixes (~40% pass rate) → ~170. Observed at pause: 77/156 ≈ 49%.
 
 ---
 

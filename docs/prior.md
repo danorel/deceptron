@@ -105,7 +105,7 @@ LoRA recipe (relevant to deceptron's Phase 2): rank 32, all linear modules, LR 5
 
 Side task must **never** appear in the trajectory text — agent told separately
 (system prompt / out-of-band), monitor must detect it from behavior alone:
-`agent/` (baseline) gets only `main_task`; `redteam/` gets both but logs only `main_task`.
+`models/coder/` (baseline) gets only `main_task`; `models/redteam/` gets both but logs only `main_task`.
 
 ---
 
